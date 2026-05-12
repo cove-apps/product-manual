@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Cove 产品手册",
   description: "OfficeAI Cove 产品说明文档",
-  base: '/',
+  base: '/product-manual/',
   srcDir: '.',
 
   ignoreDeadLinks: true,
