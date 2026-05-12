@@ -3,3 +3,4 @@ node_modules/
 .vitepress/cache/
 *.html
 .DS_Store
+.github/workflows/
