@@ -10,6 +10,7 @@ export default defineConfig({
 
   head: [
     ['link', { rel: 'icon', href: '/favicon.svg' }],
+    ['script', { src: '/product-manual/js/video-player.js' }],
   ],
 
   themeConfig: {
