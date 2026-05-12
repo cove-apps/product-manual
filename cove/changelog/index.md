@@ -7,7 +7,7 @@ title: 更新日志
 > 每次版本更新后，你可以在这里查看新增了什么、修复了什么。
 
 <div style="margin:20px 0;">
-  <a href="/product-manual/downloads/cove-更新日志.pdf" download style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
+  <a target="_blank" href="/product-manual/downloads/cove-更新日志.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
     ⬇ 下载 PDF 版本
   </a>
 </div>
