@@ -8,7 +8,7 @@ title: 服务端手册
 > 管理企业内网的 AI 办公平台部署与配置。
 
 <div style="margin:20px 0;">
-  <a href="/downloads/cove-服务端手册.pdf" download style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
+  <a href="/product-manual/downloads/cove-服务端手册.pdf" download style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
     ⬇ 下载 PDF 版本
   </a>
 </div>
