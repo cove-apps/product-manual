@@ -2,13 +2,13 @@
 title: 产品白皮书
 ---
 
-# Cove 产品白皮书
+# OfficeAI 产品白皮书
 
 > 面向客户决策层、采购方、合规方、合作伙伴。
-> 清晰说明 Cove 当前真正能交付什么、产品边界在哪里、如何集成与部署。
+> 清晰说明 OfficeAI 当前真正能交付什么、产品边界在哪里、如何集成与部署。
 
 <div style="margin:20px 0;">
-  <a target="_blank" href="/product-manual/downloads/cove-产品白皮书.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
+  <a target="_blank" href="/product-manual/downloads/officeai-产品白皮书.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
     ⬇ 下载 PDF 版本
   </a>
 </div>
@@ -17,7 +17,7 @@ title: 产品白皮书
 
 ## 一、产品定位
 
-Cove 是一套面向党政、军工、金融、科研院所、设计单位等强监管领域的**企业级 AI 智能办公平台**。产品形态分为两端：
+OfficeAI 是一套面向党政、军工、金融、科研院所、设计单位等强监管领域的**企业级 AI 智能办公平台**。产品形态分为两端：
 
 **Word 插件端**：嵌入 WPS / Microsoft Office 的侧边栏，提供文档校对、翻译、排版、模板沉淀、Skill 调度等核心文档处理能力。
 
@@ -41,7 +41,7 @@ Cove 是一套面向党政、军工、金融、科研院所、设计单位等强
 ## 二、产品矩阵
 
 ```
-Cove
+OfficeAI
 ├── Word 插件
 │   ├── 文档校对 —— 错别字、标点、数字与计量单位、国标引用、行业规范
 │   ├── 文档翻译 —— 多语种段落对照，支持 RTL 语言

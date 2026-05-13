@@ -1,14 +1,14 @@
 ---
 layout: home
-title: Cove 产品手册
+title: OfficeAI 产品手册
 
 hero:
-  name: Cove
+  name: OfficeAI
   text: 产品手册
   tagline: OfficeAI 智能办公助手
   image:
-    src: /cove-logo.png
-    alt: Cove
+    src: /officeai-logo.png
+    alt: OfficeAI
 
 features:
   - icon:

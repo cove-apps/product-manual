@@ -1,8 +1,8 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  title: "Cove 产品手册",
-  description: "OfficeAI Cove 产品说明文档",
+  title: "OfficeAI 产品手册",
+  description: "OfficeAI 产品说明文档",
   base: '/product-manual/',
   srcDir: '.',
 
@@ -10,17 +10,16 @@ export default defineConfig({
 
   head: [
     ['link', { rel: 'icon', href: '/favicon.svg' }],
-    ['script', { src: '/product-manual/js/video-player.js' }],
   ],
 
   themeConfig: {
-    logo: '/cove-logo.png',
+    logo: '/officeai-logo.png',
     search: {
       provider: 'local',
     },
 
     nav: [
-      { text: 'Cove 产品手册', link: '/cove/' },
+      { text: 'OfficeAI 产品手册', link: '/cove/' },
       { text: '客户端手册', link: '/cove/client/' },
       { text: '服务端手册', link: '/cove/admin/' },
       { text: '更新日志', link: '/cove/changelog/' },
@@ -78,7 +77,7 @@ export default defineConfig({
 
     footer: {
       message: '用 AI 解锁新质生产力',
-      copyright: '© 2026 OfficeAI Cove',
+      copyright: '© 2026 OfficeAI',
     },
   },
 })

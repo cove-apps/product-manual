@@ -2,13 +2,13 @@
 title: 客户端手册
 ---
 
-# Cove 客户端操作手册
+# OfficeAI 客户端操作手册
 
 > 面向办公人员、写作者、文档编辑者。
 > 不需要懂技术，按任务找章节即可。
 
 <div style="margin:20px 0;">
-  <a target="_blank" href="/product-manual/downloads/cove-客户端手册.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
+  <a target="_blank" href="/product-manual/downloads/officeai-客户端手册.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
     ⬇ 下载 PDF 版本
   </a>
 </div>

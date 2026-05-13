@@ -2,13 +2,13 @@
 title: 服务端手册
 ---
 
-# Cove 服务端部署及管理后台操作手册
+# OfficeAI 服务端部署及管理后台操作手册
 
 > 面向系统管理员、安全管理员、审计管理员。
 > 管理企业内网的 AI 办公平台部署与配置。
 
 <div style="margin:20px 0;">
-  <a target="_blank" href="/product-manual/downloads/cove-服务端手册.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
+  <a target="_blank" href="/product-manual/downloads/officeai-服务端手册.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
     ⬇ 下载 PDF 版本
   </a>
 </div>
