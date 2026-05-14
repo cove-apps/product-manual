@@ -66,7 +66,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: 发送飞书通知
-        if: always() && secrets.LARK_WEBHOOK != ''
+        if: always()
         env:
           WEBHOOK: ${{ secrets.LARK_WEBHOOK }}
           EVENT: ${{ github.event_name }}
@@ -75,6 +75,11 @@ jobs:
           STATUS: ${{ job.status }}
           URL: ${{ steps.deployment.outputs.page_url }}
         run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "未配置飞书 Webhook，跳过通知"
+            exit 0
+          fi
+
           if [ "$STATUS" = "success" ]; then
             TEMPLATE="green"
             STATUS_TEXT="部署成功 ✅"
