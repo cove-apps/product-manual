@@ -135,7 +135,7 @@ jobs:
         id: create-pr
         if: steps.check-changes.outputs.has_changes == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
         run: |
           BRANCH="auto-docs/update-${SRC_REPO}-${SRC_VERSION}"
 
