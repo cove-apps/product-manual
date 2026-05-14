@@ -222,12 +222,15 @@ ${contents.join('\n<div class="page-break"></div>\n')}
     try { fs.unlinkSync(tmpFile); } catch(e) {}
     // 设置 PDF 打开时自动显示目录面板（书签/大纲）
     try {
-      let pdfBuf = fs.readFileSync(pdfPath);
-      pdfBuf = Buffer.from(pdfBuf.toString('utf-8').replace(
-        '/Type /Catalog',
-        '/Type /Catalog /PageMode /UseOutlines'
-      ), 'utf-8');
-      fs.writeFileSync(pdfPath, pdfBuf);
+      // 注意：必须用 Buffer.indexOf + concat，不能转 string（会损坏二进制流）
+      const pdfBuf = fs.readFileSync(pdfPath);
+      const marker = Buffer.from('/Type /Catalog', 'ascii');
+      const repl = Buffer.from('/Type /Catalog /PageMode /UseOutlines', 'ascii');
+      const idx = pdfBuf.indexOf(marker);
+      if (idx >= 0) {
+        const fixed = Buffer.concat([pdfBuf.slice(0, idx), repl, pdfBuf.slice(idx + marker.length)]);
+        fs.writeFileSync(pdfPath, fixed);
+      }
     } catch(e) { /* PageMode 修改失败不影响导出 */ }
 
     // 同步到 public/downloads/，供开发服务器使用
