@@ -7,10 +7,55 @@ title: 更新日志
 > 每次版本更新后，你可以在这里查看新增了什么、修复了什么。
 
 <div style="margin:20px 0;">
-  <a target="_blank" href="/product-manual/downloads/officeai-更新日志.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
+  <a target="_blank" href="/product-manual/downloads/cove-更新日志.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
     ⬇ 下载 PDF 版本
   </a>
 </div>
+
+## 1.4.8
+
+> 发布日期：2026-05-14
+
+- 🐛 修复：新建文档时侧边栏展示错误历史对话记录
+- 🐛 修复：对照取消快照恢复优化
+- ⚡ 优化：右侧面板全链路日志补充
+- ⚡ 优化：异步打开设置弹窗
+- ✨ 新增：排版格式保真与分类规则回归测试
+- ✨ 新增：排版提取与应用质量防御测试
+
+## 1.4.7
+
+> 发布日期：2026-05-13
+
+- 🐛 修复：排版后签发人姓名字体和段落斜体异常
+- 🐛 修复：排版模板应用后标题颜色异常
+- 🐛 修复：导入内容模板后列表不显示
+- 🐛 修复：小模型路径参数引号问题导致模板文档不存在
+- 🐛 修复：页眉页脚样式未应用及字号丢失
+- 🐛 修复：排版模板取消无法撤销
+- 🐛 修复：左对齐段落误判为红头/标题
+- ✨ 新增：table_body_row 中文标签
+
+## 1.4.6
+
+> 发布日期：2026-05-13
+
+- 🐛 修复：欢迎语改为固定「你好」，避免时区不准导致早晨/下午/晚上显示异常
+
+## 1.4.5
+
+> 发布日期：2026-05-13
+
+- ✨ 新增：本地运行日志
+- ⚡ 优化：快捷指令首屏反馈与缓存过期校验
+- ⚡ 优化：工具调用折叠状态保持
+- ⚡ 优化：LoopGuard 循环超时上限调整为 10 分钟
+- ⚡ 优化：思考功能默认关闭
+- 🐛 修复：getTemplateProfile 返回值精简，修复 context 超限与存储超额
+- 🐛 修复：重复 patch 展开后 find 相同时错误应用
+- 🐛 修复：window.wps 兜底检测修复部分 WPS 版本模板保存失败
+- 🐛 修复：OOXML 段落 ID 读取路径统一
+- 🐛 修复：skill 执行链路加固
 
 ## 1.4.4
 
