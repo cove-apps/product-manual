@@ -74,6 +74,7 @@ jobs:
           REPO: ${{ github.event.client_payload.repo }}
           STATUS: ${{ job.status }}
           URL: ${{ steps.deployment.outputs.page_url }}
+          COMMIT_MSG: ${{ github.event.head_commit && github.event.head_commit.message || '' }}
         run: |
           if [ -z "$WEBHOOK" ]; then
             echo "未配置飞书 Webhook，跳过通知"
@@ -90,10 +91,19 @@ jobs:
 
           if [ "$EVENT" = "repository_dispatch" ]; then
             SOURCE="${REPO} 发布 ${VERSION}"
+            DETAIL=""
           elif [ "$EVENT" = "push" ]; then
             SOURCE="内容更新推送"
+            DETAIL="最新提交：$(echo "$COMMIT_MSG" | head -1)"
           else
             SOURCE="手动触发"
+            DETAIL=""
+          fi
+
+          if [ -n "$DETAIL" ]; then
+            NOTIFY_BODY="${SOURCE}\n${DETAIL}\n**状态**：${STATUS_TEXT}\n**地址**：[查看产品手册](${URL})"
+          else
+            NOTIFY_BODY="${SOURCE}\n**状态**：${STATUS_TEXT}\n**地址**：[查看产品手册](${URL})"
           fi
 
           curl -s -X POST "$WEBHOOK" \
@@ -107,7 +117,7 @@ jobs:
                 "template": "${TEMPLATE}"
               },
               "elements": [
-                {"tag": "div", "text": {"tag": "lark_md", "content": "**触发来源**：${SOURCE}\n**状态**：${STATUS_TEXT}\n**地址**：[查看产品手册](${URL})"}}
+                {"tag": "div", "text": {"tag": "lark_md", "content": "${NOTIFY_BODY}"}}
               ]
             }
           }
