@@ -15,6 +15,7 @@ const DIST_DL = path.resolve(DIST, 'downloads');   // 部署产物目录（GitHu
 const SRC_DL = path.resolve(ROOT, 'public/downloads'); // 源文件目录（开发服务器用）
 const PORT = 8765;
 const BASE = `http://localhost:${PORT}`;
+const BASE_PATH = '/product-manual';  // VitePress base path，文件服务时需要去掉
 
 /**
  * 扫描目录，自动发现所有手册页面。
@@ -49,7 +50,11 @@ function startServer(distDir, port) {
       '.woff2':'font/woff2','.woff':'font/woff','.ttf':'font/ttf',
     };
     const srv = http.createServer((req, res) => {
-      const url = decodeURIComponent(req.url);
+      let url = decodeURIComponent(req.url);
+      // 去掉 VitePress base path 前缀，使路径能正确匹配 dist 目录结构
+      if (url.startsWith(BASE_PATH + '/') || url === BASE_PATH) {
+        url = url.slice(BASE_PATH.length) || '/';
+      }
       let fp = path.join(distDir, url === '/' ? '/index.html' : url);
       if (!path.extname(fp)) {
         const withHtml = fp + '.html';
@@ -135,7 +140,8 @@ async function main() {
 
     const contents = [];
     console.log(`  正在抓取 ${section.pages.length} 页（并发 5 组）...`);
-    const htmls = await fetchAllPages(browser, section.pages, BASE);
+    // 需要包含 base path 前缀，否则 VitePress JS 路由检测到路径不符会显示 404
+    const htmls = await fetchAllPages(browser, section.pages, `${BASE}${BASE_PATH}`);
     for (let i = 0; i < section.pages.length; i++) {
       process.stdout.write(`  ${section.pages[i]} (${(htmls[i].length / 1024).toFixed(0)}KB)\n`);
       contents.push(htmls[i]);
