@@ -1,45 +1,42 @@
 /**
-导出脚本：将所有手册页面合并为一个 HTML → 一次生成 PDF → 获得完整目录大纲。
-用法：node scripts/export-pdf.cjs （需先 npm run build）
-*/
+ * PDF 导出脚本：动态扫描目录，自动包含新增页面。
+ * 将所有手册页面合并为一个 HTML → 一次生成 PDF → 获得完整目录大纲。
+ * 用法：node scripts/export-pdf.cjs （需先 npm run build）
+ */
 
 const puppeteer = require('puppeteer');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const DIST = path.resolve(__dirname, '../.vitepress/dist');
-const OUTPUT = path.resolve(__dirname, '../public/downloads');
+const ROOT = path.resolve(__dirname, '..');
+const DIST = path.resolve(ROOT, '.vitepress/dist');
+const OUTPUT = path.resolve(ROOT, 'public/downloads');
 const PORT = 8765;
 const BASE = `http://localhost:${PORT}`;
 
+/**
+ * 扫描目录，自动发现所有手册页面。
+ * 按文件名排序，排除 index.md。
+ */
+function scanPages(dir, label) {
+  const fullDir = path.resolve(ROOT, dir);
+  if (!fs.existsSync(fullDir)) return { name: label, pages: [] };
+
+  const files = fs.readdirSync(fullDir)
+    .filter(f => f.endsWith('.md') && f !== 'index.md')
+    .sort();
+
+  const pages = files.map(f => `/${dir}/${f.replace(/\.md$/, '')}`);
+  return { name: label, pages };
+}
+
+// 动态构建导出列表
 const SECTIONS = [
-  {
-    name: 'cove-客户端手册',
-    pages: [
-      '/cove/client/', '/cove/client/01-安装与登录', '/cove/client/02-界面速览',
-      '/cove/client/03-01-校对', '/cove/client/03-02-排版', '/cove/client/03-03-校审',
-      '/cove/client/03-04-翻译', '/cove/client/03-05-总结', '/cove/client/03-06-改写',
-      '/cove/client/03-07-润色', '/cove/client/03-08-小工具', '/cove/client/04-常见问题',
-    ],
-  },
-  {
-    name: 'cove-服务端手册',
-    pages: [
-      '/cove/admin/', '/cove/admin/01-环境准备', '/cove/admin/02-服务端部署',
-      '/cove/admin/03-大模型配置', '/cove/admin/04-用户管理', '/cove/admin/05-任务与指令',
-      '/cove/admin/06-技能库', '/cove/admin/07-安全配置', '/cove/admin/08-仪表盘',
-      '/cove/admin/09-常见问题',
-    ],
-  },
-  {
-    name: 'cove-产品白皮书',
-    pages: ['/cove/whitepaper/'],
-  },
-  {
-    name: 'cove-更新日志',
-    pages: ['/cove/changelog/'],
-  },
+  scanPages('cove/client', 'cove-客户端手册'),
+  scanPages('cove/admin', 'cove-服务端手册'),
+  { name: 'cove-产品白皮书', pages: ['/cove/whitepaper/'] },
+  { name: 'cove-更新日志', pages: ['/cove/changelog/'] },
 ];
 
 // 静态文件服务器
@@ -80,10 +77,8 @@ async function fetchPageContent(browser, url) {
   await new Promise(r => setTimeout(r, 2000));
   // 获取正文 HTML（去除导航、侧边栏、页脚、视频、下载按钮）
   const html = await page.evaluate(() => {
-    // 移除页面装饰元素
     document.querySelectorAll('video,.VPNav,.VPSidebar,.VPLocalNav,.VPFooter,.VPDocFooter,a[href*="/downloads/"]')
       .forEach(el => el.remove());
-    // 内部链接转纯文本
     document.querySelectorAll('a[href]').forEach(a => {
       const h = a.getAttribute('href') || '';
       if (h.startsWith('/') || h.startsWith('./') || h.startsWith('../') || h.startsWith('#')) {
@@ -117,9 +112,13 @@ async function main() {
   fs.mkdirSync(OUTPUT, { recursive: true });
 
   for (const section of SECTIONS) {
-    console.log(`\n📖 ${section.name}`);
+    if (section.pages.length === 0) {
+      console.log(`\n📖 ${section.name} — 无页面，跳过`);
+      continue;
+    }
 
-    // 1. 逐个页面抓取正文
+    console.log(`\n📖 ${section.name}（${section.pages.length} 页）`);
+
     const contents = [];
     for (const pageUrl of section.pages) {
       process.stdout.write(`  抓取: ${pageUrl} `);
@@ -128,7 +127,6 @@ async function main() {
       process.stdout.write(`(${(html.length / 1024).toFixed(0)}KB)\n`);
     }
 
-    // 2. 组装为单个完整 HTML
     const combinedHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -155,11 +153,9 @@ ${contents.join('\n<div class="page-break"></div>\n')}
 </body>
 </html>`;
 
-    // 3. 保存临时 HTML 到 dist 内（让 HTTP 服务器可访问）
     const tmpFile = path.join(DIST, `_combined_${section.name}.html`);
     fs.writeFileSync(tmpFile, combinedHtml, 'utf-8');
 
-    // 生成 PDF
     const pdfPage = await browser.newPage();
     await pdfPage.goto(`http://localhost:${PORT}/_combined_${section.name}.html`, {
       waitUntil: 'networkidle0', timeout: 30000

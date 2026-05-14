@@ -4,6 +4,25 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 操作模式
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - ai-update
+      repo:
+        description: '源仓库（ai-update 模式需要）'
+        required: false
+        type: choice
+        options:
+          - cove-wps
+          - cove-go
+      version:
+        description: '版本号（ai-update 模式需要）'
+        required: false
   repository_dispatch:
     types: [trigger-docs-build]
 
@@ -12,12 +31,187 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
+  # ═══════════════════════════════════════════════════════════════════
+  # Job 1: AI 自动文档更新
+  # 触发方式：
+  #   - 源仓库发版（repository_dispatch）
+  #   - 手动选择 ai-update 模式（workflow_dispatch）
+  # ═══════════════════════════════════════════════════════════════════
+  auto-update:
+    if: >
+      github.event_name == 'repository_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'ai-update')
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.check-changes.outputs.has_changes }}
+      pr_url: ${{ steps.create-pr.outputs.pr_url }}
+    steps:
+      - name: 设置仓库和版本变量
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "SRC_REPO=${{ github.event.client_payload.repo }}" >> $GITHUB_ENV
+            echo "SRC_VERSION=${{ github.event.client_payload.version }}" >> $GITHUB_ENV
+          else
+            echo "SRC_REPO=${{ inputs.repo }}" >> $GITHUB_ENV
+            echo "SRC_VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+          fi
+
+      - name: 校验参数
+        run: |
+          if [ -z "$SRC_REPO" ]; then
+            echo "请指定源仓库（repo 参数）"
+            exit 1
+          fi
+          echo "源仓库：$SRC_REPO"
+          echo "版本：$SRC_VERSION"
+
+      - name: 检出产品手册仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 生成更新日志
+        run: |
+          curl -s "https://api.github.com/repos/cove-apps/cove-wps/contents/release-manifest.json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -o /tmp/rm.json 2>/dev/null || echo "无法获取远程更新日志"
+          node scripts/generate-changelog.js 2>&1 || echo "跳过更新日志生成"
+
+      - name: 检出源仓库（用于 AI 文档更新）
+        uses: actions/checkout@v4
+        with:
+          repository: cove-apps/${{ env.SRC_REPO }}
+          path: ../${{ env.SRC_REPO }}
+          token: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+
+      - name: AI 自动更新文档
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          SOURCE_REPO: ${{ env.SRC_REPO }}
+          SOURCE_VERSION: ${{ env.SRC_VERSION }}
+        run: node scripts/auto-update-docs.mjs
+
+      - name: 安装 Chrome（截图用）
+        run: npx puppeteer browsers install chrome || true
+
+      - name: 截图插件界面
+        if: >
+          (github.event_name == 'repository_dispatch' && github.event.client_payload.repo == 'cove-wps') ||
+          (github.event_name == 'workflow_dispatch' && inputs.repo == 'cove-wps')
+        run: node scripts/screenshot-docs.cjs
+
+      - name: 读取手动截图指引
+        id: manual-screenshots
+        run: |
+          if [ -f ".screenshot-hints/manual.json" ]; then
+            PAGES=$(cat .screenshot-hints/manual.json | python3 -c "import sys,json; print(', '.join(json.load(sys.stdin).get('manualPages', [])))")
+            echo "has_manual=true" >> "$GITHUB_OUTPUT"
+            echo "manual_pages=$PAGES" >> "$GITHUB_OUTPUT"
+            echo "需要手动截图：$PAGES"
+          else
+            echo "has_manual=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 检查是否有文档变更
+        id: check-changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "发现文档变更，将创建 PR"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "无文档变更，跳过 PR"
+          fi
+
+      - name: 创建分支和 PR
+        id: create-pr
+        if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="auto-docs/update-${SRC_REPO}-${SRC_VERSION}"
+
+          git config user.name "Auto Docs Bot"
+          git config user.email "bot@cove-apps.github.io"
+
+          git checkout -b "${BRANCH}"
+          git add -A
+          git commit -m "AI 自动文档更新：${SRC_REPO} ${SRC_VERSION} [skip ci]"
+
+          git push origin "${BRANCH}" 2>/dev/null || \
+            git push origin "${BRANCH}" --force
+
+          PR_URL=$(gh pr view "${BRANCH}" --json url --jq '.url' 2>/dev/null || \
+            gh pr create \
+              --base main \
+              --head "${BRANCH}" \
+              --title "AI 自动文档更新：${SRC_REPO} ${SRC_VERSION}" \
+              --body "## 更新内容
+
+          AI 检测到 \`${SRC_REPO}\` 发布了新版本 \`${SRC_VERSION}\`，已自动更新相关文档。
+
+          ### 变更类型
+          - 更新日志（changelog）
+          - 操作手册
+          - 产品白皮书
+          - 截图
+
+          > 请审核文档内容，确认无误后合并到 main。合并后将自动触发部署。")
+
+          echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
+          echo "PR 已创建：${PR_URL}"
+
+      - name: 发送飞书审核通知
+        if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          WEBHOOK: ${{ secrets.LARK_WEBHOOK }}
+          PR_URL: ${{ steps.create-pr.outputs.pr_url }}
+          NEED_MANUAL_SCREENSHOTS: ${{ steps.manual-screenshots.outputs.has_manual }}
+          MANUAL_PAGES: ${{ steps.manual-screenshots.outputs.manual_pages }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "未配置飞书 Webhook，跳过通知"
+            exit 0
+          fi
+
+          MAIN_BLOCK='{"tag":"div","text":{"tag":"lark_md","content":"**更新来源**：'"${SRC_REPO}"' 发布 '"${SRC_VERSION}"'\n\nAI 已自动更新产品手册，需人工审核后合并。\n\n**👉 [查看并审核 PR]('"${PR_URL}"')**\n\n审核通过后合并到 main 分支，系统将自动构建和部署。"}}'
+
+          if [ "$NEED_MANUAL_SCREENSHOTS" = "true" ]; then
+            SCREENSHOT_BLOCK='{"tag":"div","text":{"tag":"lark_md","content":"**📷 需要你手动截图**\n以下界面需要在 WPS 中截图：'"${MANUAL_PAGES}"'\n\n截图后放入对应 images/ 目录即可。"}}'
+            ELEMENTS="[${MAIN_BLOCK}, ${SCREENSHOT_BLOCK}]"
+          else
+            ELEMENTS="[${MAIN_BLOCK}]"
+          fi
+
+          curl -s -X POST "$WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"msg_type\": \"interactive\",
+              \"card\": {
+                \"header\": {
+                  \"title\": {\"tag\": \"plain_text\", \"content\": \"📖 产品手册待审核\"},
+                  \"template\": \"blue\"
+                },
+                \"elements\": ${ELEMENTS}
+              }
+            }"
+          echo "飞书审核通知已发送"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Job 2: 构建 + 部署（main 分支 push 或手动选择 deploy 模式）
+  # ═══════════════════════════════════════════════════════════════════
   build:
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy')
     runs-on: ubuntu-latest
     steps:
       - name: 检出仓库
@@ -34,48 +228,10 @@ jobs:
 
       - name: 生成更新日志
         run: |
-          # 从 GitHub API 获取最新 release-manifest
           curl -s "https://api.github.com/repos/cove-apps/cove-wps/contents/release-manifest.json" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -o /tmp/rm.json 2>/dev/null || echo "无法获取远程更新日志"
           node scripts/generate-changelog.js 2>&1 || echo "跳过更新日志生成"
-
-      - name: 检出源仓库（用于 AI 文档更新）
-        if: github.event_name == 'repository_dispatch'
-        uses: actions/checkout@v4
-        with:
-          repository: cove-apps/${{ github.event.client_payload.repo }}
-          path: ../${{ github.event.client_payload.repo }}
-          token: ${{ secrets.DOCS_DISPATCH_TOKEN }}
-
-      - name: AI 自动更新文档
-        if: github.event_name == 'repository_dispatch'
-        env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          SOURCE_REPO: ${{ github.event.client_payload.repo }}
-          SOURCE_VERSION: ${{ github.event.client_payload.version }}
-        run: node scripts/auto-update-docs.mjs
-
-      - name: 安装 Chrome（截图 + PDF 导出）
-        run: npx puppeteer browsers install chrome || true
-
-      - name: 截图插件界面
-        if: github.event_name == 'repository_dispatch' && github.event.client_payload.repo == 'cove-wps'
-        run: node scripts/screenshot-docs.cjs
-
-      - name: 提交文档更新（含截图）
-        if: github.event_name == 'repository_dispatch'
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            git config user.name "Auto Docs Bot"
-            git config user.email "bot@cove-apps.github.io"
-            git add -A
-            git commit -m "AI 自动更新文档 [skip ci]"
-            git push
-            echo "文档更新已提交"
-          else
-            echo "无文档变更，跳过提交"
-          fi
 
       - name: 构建网站
         run: npm run build
@@ -84,11 +240,14 @@ jobs:
         run: node scripts/export-pdf.cjs || echo "PDF 导出跳过"
 
       - name: 上传 Pages 产物
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: .vitepress/dist
 
   deploy:
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'deploy')
     needs: build
     runs-on: ubuntu-latest
     environment:
@@ -104,8 +263,6 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.LARK_WEBHOOK }}
           EVENT: ${{ github.event_name }}
-          VERSION: ${{ github.event.client_payload.version }}
-          REPO: ${{ github.event.client_payload.repo }}
           STATUS: ${{ job.status }}
           URL: ${{ steps.deployment.outputs.page_url }}
           COMMIT_MSG: ${{ github.event.head_commit && github.event.head_commit.message || '' }}
@@ -123,21 +280,15 @@ jobs:
             STATUS_TEXT="部署失败 ❌"
           fi
 
-          if [ "$EVENT" = "repository_dispatch" ]; then
-            SOURCE="${REPO} 发布 ${VERSION}"
-            DETAIL=""
-          elif [ "$EVENT" = "push" ]; then
-            SOURCE="内容更新推送"
+          SOURCE="内容更新推送"
+          DETAIL=""
+          if [ -n "$COMMIT_MSG" ]; then
             DETAIL="最新提交：$(echo "$COMMIT_MSG" | head -1)"
-          else
-            SOURCE="手动触发"
-            DETAIL=""
           fi
 
-          if [ -n "$DETAIL" ]; then
-            NOTIFY_BODY="${SOURCE}\n${DETAIL}\n**状态**：${STATUS_TEXT}\n**地址**：[查看产品手册](${URL})"
-          else
-            NOTIFY_BODY="${SOURCE}\n**状态**：${STATUS_TEXT}\n**地址**：[查看产品手册](${URL})"
+          NOTIFY_BODY="${SOURCE}\n${DETAIL}\n**状态**：${STATUS_TEXT}"
+          if [ -n "$URL" ]; then
+            NOTIFY_BODY="${NOTIFY_BODY}\n**地址**：[查看产品手册](${URL})"
           fi
 
           curl -s -X POST "$WEBHOOK" \

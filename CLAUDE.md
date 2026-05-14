@@ -23,36 +23,35 @@ npm run deploy              # export:pdf + build（完整发布流程）
 
 ```
 .vitepress/
-  config.mts          # VitePress 配置：导航、侧边栏、搜索
-  theme/index.ts      # 主题入口（目前只是默认主题）
-cove/                  # 内容目录（产品名，可改为其他名称支持多产品）
+  config.mts          # VitePress 配置；侧边栏自动扫描目录生成
+cove/                  # 文档内容
   client/             # 客户端手册 - WPS 插件用户文档
   admin/              # 服务端手册 - 部署和运维文档
   changelog/          # 更新日志（由脚本自动生成）
   whitepaper/         # 产品白皮书
 scripts/
-  generate-changelog.js  # 从同级 cove-wps 仓库的 release-manifest.json 生成 changelog
-  export-pdf.cjs         # 用 Puppeteer 将各手册页面合并导出为 PDF
-  export-pdf.sh          # PDF 导出的 shell 包装
+  generate-changelog.js  # 从 release-manifest.json 生成 changelog
+  auto-update-docs.mjs   # AI（DeepSeek）分析提交，自动更新三件套
+  screenshot-docs.cjs    # Web 页面自动截图 + WPS 截图指引
+  export-pdf.cjs         # 动态扫描目录，合并导出为 PDF
   download-images.sh     # 批量下载文档中的远程图片
   export-word.sh         # Word 导出
 public/
   downloads/          # 导出的 PDF 文件
-  icons/              # 首页图标 SVG
+  icons/              # 首页功能图标 SVG
   videos/             # 产品演示视频
 index.md              # 网站首页
 ```
 
 ## 关键工作流
 
-- **更新内容**：编辑 `cove/` 下的 Markdown 文件，每个文件有 YAML frontmatter 定义 title
-- **更新日志**：由 GitHub Actions 在部署时自动调用 `generate-changelog.js` 生成，数据来源是同级 `cove-wps/release-manifest.json`
-- **PDF 导出**：`export-pdf.cjs` 先构建网站，启动本地 HTTP 服务，用 Puppeteer 抓取各手册页面内容，合并为单个 HTML 再生成 PDF
-- **部署**：`main` 分支 push 触发 GitHub Actions → 安装依赖 → 生成 changelog → build → 导出 PDF → 部署到 GitHub Pages
+- **AI 自动更新**：`repository_dispatch` 触发 → DeepSeek 分析 commit → 生成 changelog + 手册页 + 白皮书 → 截图 → 创建分支 + PR → 飞书通知审核
+- **部署**：PR 合并到 main 触发 GitHub Actions → changelog → build → PDF 导出 → 部署 GitHub Pages → 飞书通知
+- **手动维护**：编辑 `cove/` 下 Markdown，每个文件有 YAML frontmatter 定义 title
 
 ## 注意事项
 
-- 网站 base path 为 `/product-manual/`（因为 GitHub Pages 的项目站点路径规则）
-- PDF 导出依赖 Puppeteer + Chrome，macOS 本地开发需要 `/Applications/Google Chrome.app` 路径
-- `.gitignore` 排除了 `videos/` 目录（视频文件较大不纳入版本控制）
-- `cove/` 目录名是产品标识，如果要支持多产品需要配套修改 `template/README.md` 的模板说明
+- 网站 base path 为 `/product-manual/`（GitHub Pages 项目站点路径规则）
+- 侧边栏 build 时自动扫描 `cove/client/` 和 `cove/admin/`，03-*.md 归入"功能详解"分组
+- PDF 导出依赖 Puppeteer + Chrome，macOS 需要 `/Applications/Google Chrome.app`
+- `.gitignore` 排除了 `videos/` 目录

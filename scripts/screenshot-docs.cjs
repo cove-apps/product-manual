@@ -1,15 +1,30 @@
 /**
- * 根据 AI 分析结果，对 cove-wps 插件界面截图。
- * 在 CI 中运行，需要 cove-wps 已检出到 ../cove-wps。
+ * 产品手册截图脚本
+ *
+ * 策略（WPS 插件的界面只能在 WPS 内截取，本脚本采用混合方案）：
+ * 1. 可 Web 渲染的页面（sidebar/settings/plugin 等）→ Playwright 自动截图
+ * 2. 需要 WPS 上下文的截图 → 生成手动截图指引，通过飞书通知
  *
  * 读取 .screenshot-hints/pending.json 决定截哪些页面。
  */
 
-const { existsSync, readFileSync, writeFileSync, mkdirSync } = require("fs");
+const { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } = require("fs");
 const { join } = require("path");
 const { execSync, spawn } = require("child_process");
 
 const ROOT = join(__dirname, "..");
+
+// cove-wps 中可以 Web 渲染的页面路由
+// key: AI 输出的 page name, value: { url, desc }
+const WEB_PAGES = {
+  "sidebar":         { url: "/cove-wps/pages/sidebar/",         desc: "侧边栏主界面" },
+  "settings":        { url: "/cove-wps/pages/settings/",        desc: "设置页面" },
+  "login":           { url: "/cove-wps/pages/login/",           desc: "登录页面" },
+  "plugin":          { url: "/cove-wps/pages/plugin/",          desc: "插件主页面" },
+  "skill-builder":   { url: "/cove-wps/pages/skill-builder/",   desc: "技能构建器" },
+  "snapshot-history":{ url: "/cove-wps/pages/snapshot-history/", desc: "快照历史" },
+  "plugin-et":       { url: "/cove-wps/pages/plugin-et/",       desc: "插件增强工具" },
+};
 
 async function main() {
   // ── 读取提示 ──────────────────────────────────────────────────────────
@@ -22,32 +37,66 @@ async function main() {
   const hints = JSON.parse(readFileSync(hintsPath, "utf-8"));
   if (!hints.pages || hints.pages.length === 0) {
     console.log("没有需要截图的页面，跳过");
-    cleanup(hintsPath);
+    cleanup();
     return;
   }
 
-  console.log(`\n=== 开始截图：${hints.pages.length} 个页面 ===\n`);
+  console.log(`\n=== 开始截图处理：${hints.pages.length} 个页面 ===\n`);
 
-  // ── 启动 dev server ───────────────────────────────────────────────────
-  const server = await startDevServer();
-  if (!server) { cleanup(hintsPath); return; }
+  // 分离可自动截图和需要手动截图的页面
+  const autoPages = hints.pages.filter((p) => WEB_PAGES[p]);
+  const manualPages = hints.pages.filter((p) => !WEB_PAGES[p]);
 
-  // ── 截图 ─────────────────────────────────────────────────────────────
+  if (autoPages.length > 0) {
+    console.log(`可自动截图：${autoPages.join(", ")}`);
+    const failed = await takeAutoScreenshots(autoPages, hints);
+    // 失败的页面加入手动截图列表
+    for (const p of failed) {
+      if (!manualPages.includes(p)) manualPages.push(p);
+    }
+  }
+
+  if (manualPages.length > 0) {
+    console.log(`需要手动截图：${manualPages.join(", ")}`);
+    saveManualHints(manualPages, hints);
+  }
+
+  cleanup();
+  console.log(`\n=== 截图处理完成（自动 ${autoPages.length} / 手动 ${manualPages.length}）===\n`);
+}
+
+// ── 自动截图 ──────────────────────────────────────────────────────────────
+
+async function takeAutoScreenshots(pages, hints) {
   const imageDir = join(ROOT, hints.imageDir);
   mkdirSync(imageDir, { recursive: true });
+  const failed = [];
 
-  const puppeteer = require("puppeteer");
+  const server = await startDevServer();
+  if (!server) {
+    console.log("无法启动 dev server，跳过自动截图");
+    return pages; // 全部降级为手动
+  }
+
+  let puppeteer;
+  try {
+    puppeteer = require("puppeteer");
+  } catch {
+    console.log("puppeteer 不可用，降级为手动截图");
+    killServer(server);
+    return pages;
+  }
+
   const browser = await puppeteer.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
-  const BASE = "http://localhost:5173/cove-wps/pages";
   const taken = [];
-
   try {
-    for (const pageName of hints.pages) {
-      const url = `${BASE}/${pageName}/`;
+    for (const pageName of pages) {
+      const info = WEB_PAGES[pageName];
+      const url = `http://localhost:5173${info.url}`;
       const filename = `${hints.label}-${pageName}.png`;
       const filepath = join(imageDir, filename);
       const relativeRef = `./images/${filename}`;
@@ -56,21 +105,24 @@ async function main() {
       try {
         const page = await browser.newPage();
         await page.setViewport({ width: 420, height: 900 });
-        await page.goto(url, { waitUntil: "networkidle0", timeout: 20000 });
+        await page.goto(url, { waitUntil: "networkidle0", timeout: 25000 });
         await new Promise((r) => setTimeout(r, 2000));
         await page.screenshot({ path: filepath, fullPage: true });
         await page.close();
-        taken.push({ filename, ref: relativeRef });
+        taken.push({ filename, ref: relativeRef, pageName });
         console.log(`  ✓ ${filename}`);
       } catch (err) {
         console.log(`  ✗ ${pageName} 截图失败：${err.message}`);
+        failed.push(pageName);
       }
     }
   } finally {
     await browser.close();
   }
 
-  // ── 追加截图引用到手冊 ────────────────────────────────────────────────
+  killServer(server);
+
+  // 追加截图到手冊
   if (hints.manualFilename && taken.length > 0) {
     const manualDir = hints.type === "client" ? "cove/client" : "cove/admin";
     const manualPath = join(ROOT, manualDir, `${hints.manualFilename}.md`);
@@ -85,26 +137,38 @@ async function main() {
     }
   }
 
-  // ── 清理 ─────────────────────────────────────────────────────────────
-  server.kill("SIGTERM");
-  cleanup(hintsPath);
-  console.log(`\n=== 截图完成：${taken.length}/${hints.pages.length} ===\n`);
+  return failed;
 }
 
-function cleanup(hintsPath) {
-  try {
-    execSync(`rm -rf "${join(ROOT, ".screenshot-hints")}"`);
-  } catch {}
+// ── 手动截图指引 ───────────────────────────────────────────────────────
+
+function saveManualHints(pages, hints) {
+  const manualDir = join(ROOT, ".screenshot-hints");
+  mkdirSync(manualDir, { recursive: true });
+
+  const manual = {
+    repo: hints.repo,
+    type: hints.type,
+    label: hints.label,
+    feature: hints.manualFilename || "",
+    manualPages: pages,
+    message: `请在 WPS 中打开 ${hints.label} 相关界面，截图后放入 ${hints.imageDir}/ 目录，文件名以 ${hints.label}- 开头。`,
+  };
+
+  writeFileSync(join(manualDir, "manual.json"), JSON.stringify(manual, null, 2));
+  console.log(`📷 手动截图指引已保存：${pages.length} 个页面需要人工截图`);
+  console.log(`   请在 WPS 中打开以下界面截图：${pages.join(", ")}`);
 }
+
+// ── Dev Server ──────────────────────────────────────────────────────────
 
 async function startDevServer() {
   const coveWpsDir = join(ROOT, "..", "cove-wps");
   if (!existsSync(join(coveWpsDir, "package.json"))) {
-    console.log("cove-wps 目录不存在，跳过截图");
+    console.log("cove-wps 目录不存在，跳过自动截图");
     return null;
   }
 
-  // 安装依赖
   if (!existsSync(join(coveWpsDir, "node_modules"))) {
     console.log("安装 cove-wps 依赖...");
     try {
@@ -115,7 +179,6 @@ async function startDevServer() {
     }
   }
 
-  // 启动 Vite
   console.log("启动 Vite dev server...");
   const server = spawn("npx", ["vite", "--port", "5173", "--host"], {
     cwd: coveWpsDir,
@@ -143,6 +206,19 @@ async function startDevServer() {
   });
 
   return server;
+}
+
+function killServer(server) {
+  try {
+    server.kill("SIGTERM");
+  } catch {}
+}
+
+function cleanup() {
+  try {
+    const hintsPath = join(ROOT, ".screenshot-hints", "pending.json");
+    if (existsSync(hintsPath)) unlinkSync(hintsPath);
+  } catch {}
 }
 
 main().catch((err) => {

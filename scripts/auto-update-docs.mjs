@@ -157,6 +157,12 @@ async function analyzeChanges(commits, docsContext, config) {
     ? '在"└── Word 插件"区域增加一行，格式如 "│   ├── 功能 —— 说明"'
     : '在"└── 企业管理后台"区域增加一行，格式如 "    ├── 功能 —— 说明"';
 
+  // 可自动截图的页面名（来自 screenshot-docs.cjs 的 WEB_PAGES）
+  const screenshotHint = [
+    'sidebar', 'settings', 'login', 'plugin',
+    'skill-builder', 'snapshot-history', 'plugin-et',
+  ].map(p => `"${p}"`).join(", ");
+
   const prompt = `分析以下提交，判断是否涉及用户可见的功能变化。
 
 源仓库：${SOURCE_REPO}（${config.label}）
@@ -185,7 +191,7 @@ ${docsList}
   "manualIndexLink": "- [**标题**](./03-09-新功能名) — 说明",
   "whitepaper": "新功能 —— 价值点（只写内容，脚本会自动加缩进）",
   "whitepaperSection": "Word 插件/企业管理后台",
-  "screenshots": ["sidebar"]
+  "screenshots": ["sidebar"],  // 可选值: ${screenshotHint}
 }
 
 不是功能变化时只输出：{"needsUpdate": false, "reason": "原因"}`;
