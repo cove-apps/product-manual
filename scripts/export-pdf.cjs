@@ -11,7 +11,8 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST = path.resolve(ROOT, '.vitepress/dist');
-const OUTPUT = path.resolve(ROOT, 'public/downloads');
+const DIST_DL = path.resolve(DIST, 'downloads');   // 部署产物目录（GitHub Pages 用）
+const SRC_DL = path.resolve(ROOT, 'public/downloads'); // 源文件目录（开发服务器用）
 const PORT = 8765;
 const BASE = `http://localhost:${PORT}`;
 
@@ -121,7 +122,8 @@ async function main() {
     args: ['--no-sandbox'],
   });
 
-  fs.mkdirSync(OUTPUT, { recursive: true });
+  fs.mkdirSync(DIST_DL, { recursive: true });
+  fs.mkdirSync(SRC_DL, { recursive: true });
 
   for (const section of SECTIONS) {
     if (section.pages.length === 0) {
@@ -179,7 +181,7 @@ ${contents.join('\n<div class="page-break"></div>\n')}
         .map(img => new Promise(r => { img.onload = r; img.onerror = r; }))
     ));
 
-    const pdfPath = path.join(OUTPUT, `${section.name}.pdf`);
+    const pdfPath = path.join(DIST_DL, `${section.name}.pdf`);
     await pdfPage.pdf({
       path: pdfPath,
       format: 'A4',
@@ -196,6 +198,10 @@ ${contents.join('\n<div class="page-break"></div>\n')}
     });
     await pdfPage.close();
     try { fs.unlinkSync(tmpFile); } catch(e) {}
+
+    // 同步到 public/downloads/，供开发服务器使用
+    const srcPath = path.join(SRC_DL, `${section.name}.pdf`);
+    fs.copyFileSync(pdfPath, srcPath);
 
     const size = (fs.statSync(pdfPath).size / 1024 / 1024).toFixed(1);
     console.log(`  ✅ ${section.name}.pdf (${size}MB)`);
