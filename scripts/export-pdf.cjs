@@ -122,9 +122,9 @@ async function main() {
   const { execSync } = require('child_process');
   if (process.platform === 'linux') {
     try {
-      console.log('  检查中文字体...');
-      execSync('fc-list :lang=zh 2>/dev/null | head -1', { stdio: 'pipe' });
-      console.log('  中文字体已存在');
+      // 检查 fonts-noto-cjk 是否已安装
+      execSync('dpkg -s fonts-noto-cjk 2>/dev/null | grep -q "Status: install ok"', { stdio: 'pipe' });
+      console.log('  中文字体（Noto Sans CJK）已安装');
     } catch {
       console.log('  正在安装中文字体（Noto Sans CJK）...');
       execSync('sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk 2>/dev/null', { stdio: 'inherit' });
