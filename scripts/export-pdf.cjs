@@ -118,6 +118,20 @@ async function main() {
     process.exit(1);
   }
 
+  // CI（Linux）上安装中文字体，避免 PDF 中文显示为方框
+  const { execSync } = require('child_process');
+  if (process.platform === 'linux') {
+    try {
+      console.log('  检查中文字体...');
+      execSync('fc-list :lang=zh 2>/dev/null | head -1', { stdio: 'pipe' });
+      console.log('  中文字体已存在');
+    } catch {
+      console.log('  正在安装中文字体（Noto Sans CJK）...');
+      execSync('sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk 2>/dev/null', { stdio: 'inherit' });
+      console.log('  中文字体安装完成');
+    }
+  }
+
   const server = await startServer(DIST, PORT);
   console.log(`🚀 服务已启动: ${BASE}`);
 
@@ -154,7 +168,7 @@ async function main() {
 <head>
 <meta charset="utf-8">
 <style>
-  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; font-size:14px; line-height:1.7; color:#222; max-width:210mm; margin:0 auto; padding:2cm; }
+  body { font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; font-size:14px; line-height:1.7; color:#222; max-width:210mm; margin:0 auto; padding:2cm; }
   h1 { font-size:22pt; color:#1a1a1a; border-bottom:2px solid #2563eb; padding-bottom:8pt; margin-top:28pt; }
   h2 { font-size:16pt; color:#333; margin-top:22pt; }
   h3 { font-size:13pt; color:#444; margin-top:16pt; }
