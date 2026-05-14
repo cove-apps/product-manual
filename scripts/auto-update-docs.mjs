@@ -1,227 +1,319 @@
 /**
- * 自动分析 cove-wps / cove-go 代码变更，更新对应文档内容。
+ * 自动分析源仓库代码变更，更新产品手册。
+ * 支持多仓库（cove-wps → 客户端手册，cove-go → 服务端手册）
+ * 每个仓库更新：changelog + 操作手册 + 白皮书
  *
  * 环境变量：
- *   DEEPSEEK_API_KEY  - DeepSeek API 密钥
- *   SOURCE_REPO       - 源仓库名（cove-wps / cove-go）
+ *   DEEPSEEK_API_KEY
+ *   SOURCE_REPO       - cove-wps / cove-go
  *   SOURCE_VERSION    - 版本号或 commit hash
  */
 
 import { execSync } from "child_process";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__dirname, "..");
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 const SOURCE_REPO = process.env.SOURCE_REPO;
-const SOURCE_VERSION = process.env.SOURCE_VERSION;
+const SOURCE_VERSION = process.env.SOURCE_VERSION || "";
+
+// Repo → 文档映射
+const REPO_CONFIG = {
+  "cove-wps": {
+    label: "客户端（WPS 插件）",
+    type: "client",
+    changelog: "cove/changelog/index.md",
+    manualIndex: "cove/client/index.md",
+    manualDir: "cove/client/",
+    whitepaper: "cove/whitepaper/index.md",
+  },
+  "cove-go": {
+    label: "服务端（管理后台）",
+    type: "admin",
+    changelog: "cove/changelog/index.md",
+    manualIndex: "cove/admin/index.md",
+    manualDir: "cove/admin/",
+    whitepaper: "cove/whitepaper/index.md",
+  },
+};
 
 async function main() {
-  if (!DEEPSEEK_API_KEY) {
-    console.log("未配置 DEEPSEEK_API_KEY，跳过自动文档更新");
+  if (!DEEPSEEK_API_KEY || !SOURCE_REPO) {
+    console.log("未配置 DEEPSEEK_API_KEY 或 SOURCE_REPO，跳过");
     return;
   }
-  if (!SOURCE_REPO) {
-    console.log("未指定源仓库，跳过自动文档更新");
+  const config = REPO_CONFIG[SOURCE_REPO];
+  if (!config) {
+    console.log(`未知仓库：${SOURCE_REPO}，跳过`);
     return;
   }
-
-  console.log(`\n=== 自动文档更新：${SOURCE_REPO} ${SOURCE_VERSION || ""} ===\n`);
+  console.log(`\n=== 自动文档更新：${SOURCE_REPO}（${config.label}）${SOURCE_VERSION} ===\n`);
 
   const commits = await getCommits(SOURCE_REPO);
-  if (commits.length === 0) {
-    console.log("没有新提交，跳过文档更新");
-    return;
-  }
-
+  if (commits.length === 0) { console.log("没有新提交，跳过"); return; }
   console.log(`获取到 ${commits.length} 个提交`);
 
-  const docsContext = readDocsContext();
-  const updates = await analyzeChanges(commits, docsContext);
+  const docsContext = readDocsContext(config);
+  console.log(`已读取 ${Object.keys(docsContext).length} 个相关文档`);
 
-  if (updates.length === 0) {
-    console.log("AI 判定无需更新文档");
-    return;
-  }
+  const result = await analyzeChanges(commits, docsContext, config);
+  if (!result.needsUpdate) return;
 
-  for (const update of updates) {
-    applyUpdate(update);
-  }
+  let changed = 0;
+  if (result.changelog) { prependToChangelog(config.changelog, result.changelog); changed++; }
+  if (result.manualContent && result.manualFilename) { updateManual(config, result); changed++; }
+  if (result.whitepaper) { updateWhitepaper(config, result.whitepaper, result.whitepaperSection); changed++; }
+  if (result.screenshots?.length > 0) { saveScreenshotHints(config, result); }
 
-  console.log("\n=== 文档更新完成 ===\n");
+  console.log(`\n=== 文档更新完成（${changed} 项变更）===\n`);
 }
 
-/** 获取源仓库的最近提交 */
+// ── Git 操作 ──────────────────────────────────────────────────────────────
+
 async function getCommits(repo) {
   const repoPath = `../${repo}`;
-
   try {
     const log = execSync(`git -C "${repoPath}" log --oneline -10 2>/dev/null`, {
-      encoding: "utf-8",
-      timeout: 30000,
+      encoding: "utf-8", timeout: 30000,
     }).trim();
     if (!log) return await getCommitsFromAPI(repo);
-
     const lines = log.split("\n").filter(Boolean);
     const commits = [];
-
     for (const line of lines.slice(0, 5)) {
       const [hash, ...msgParts] = line.split(" ");
       const message = msgParts.join(" ");
       let diff = "";
       try {
         diff = execSync(`git -C "${repoPath}" show --stat ${hash} 2>/dev/null | head -30`, {
-          encoding: "utf-8",
-          timeout: 15000,
+          encoding: "utf-8", timeout: 15000,
         }).trim();
       } catch {}
       commits.push({ hash, message, diff });
     }
-
     return commits;
   } catch {
     return await getCommitsFromAPI(repo);
   }
 }
 
-/** 从 GitHub API 获取提交（当本地没有仓库时） */
 async function getCommitsFromAPI(repo) {
   try {
     const res = await fetch(
       `https://api.github.com/repos/cove-apps/${repo}/commits?per_page=5`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.GITHUB_TOKEN || ""}`,
-          "User-Agent": "product-manual-auto-update",
-        },
-      }
+      { headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN || ""}`, "User-Agent": "product-manual-auto-update" } }
     );
     if (!res.ok) return [];
-
     const data = await res.json();
     return data.map((c) => ({
       hash: c.sha.slice(0, 7),
       message: c.commit.message.split("\n")[0],
       diff: c.commit.message,
     }));
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
-/** 读取当前产品手册的关键文档 */
-function readDocsContext() {
-  const docsDir = join(__dirname, "..", "cove");
-  const context = {};
+// ── 文档读取 ──────────────────────────────────────────────────────────────
 
-  const indexFiles = ["client/index.md", "admin/index.md", "whitepaper/index.md"];
-
-  for (const file of indexFiles) {
-    const p = join(docsDir, file);
-    if (existsSync(p)) {
-      context[file] = readFileSync(p, "utf-8").slice(0, 2000);
+function readDocsContext(config) {
+  const docs = {};
+  const paths = [config.changelog, config.manualIndex, config.whitepaper];
+  for (const relPath of paths) {
+    const fullPath = join(ROOT, relPath);
+    if (!existsSync(fullPath)) continue;
+    const content = readFileSync(fullPath, "utf-8");
+    if (relPath === config.whitepaper) {
+      // 白皮书：取前 3000 字 + 产品矩阵部分
+      const matrixStart = content.indexOf("## 二、产品矩阵");
+      const matrixPart = matrixStart >= 0
+        ? content.slice(matrixStart, matrixStart + 2000) : "";
+      docs[relPath] = content.slice(0, 3000) + "\n...\n" + matrixPart;
+    } else {
+      docs[relPath] = content.length > 3000 ? content.slice(0, 3000) : content;
     }
   }
-
-  const changelogPath = join(docsDir, "changelog", "index.md");
-  if (existsSync(changelogPath)) {
-    const content = readFileSync(changelogPath, "utf-8");
-    context["changelog/index.md"] = content.split("\n").slice(0, 50).join("\n");
-  }
-
-  return context;
+  return docs;
 }
 
-/** 调用 DeepSeek API 分析变更 */
-async function analyzeChanges(commits, docsContext) {
+// ── AI 分析 ────────────────────────────────────────────────────────────────
+
+async function analyzeChanges(commits, docsContext, config) {
   const commitSummary = commits
-    .map((c) => `- ${c.hash} ${c.message}\n  改动文件：${c.diff || "无"}`)
+    .map((c) => `- ${c.hash} ${c.message}`)
     .join("\n");
 
-  const docsOverview = Object.entries(docsContext)
+  const docsList = Object.entries(docsContext)
     .map(([file, content]) => `【${file}】\n${content}`)
-    .join("\n\n");
+    .join("\n\n---\n\n");
 
-  const prompt = `你是一个产品文档工程师。请分析以下代码仓库的提交，更新产品手册。
+  // 对于左侧导航的白皮书，提取对应的产品矩阵区域
+  const isClient = config.type === "client";
+  const manualHint = isClient
+    ? "更新客户端操作手册（cove/client/），操作步骤面向 WPS 插件用户"
+    : "更新服务端手册（cove/admin/），操作步骤面向系统管理员";
+  const whitepaperHint = isClient
+    ? '在"└── Word 插件"区域增加一行，格式如 "│   ├── 功能 —— 说明"'
+    : '在"└── 企业管理后台"区域增加一行，格式如 "    ├── 功能 —— 说明"';
 
-## 当前提交
+  const prompt = `分析以下提交，判断是否涉及用户可见的功能变化。
+
+源仓库：${SOURCE_REPO}（${config.label}）
+
+提交：
 ${commitSummary}
 
-## 现有文档概览
-${docsOverview}
+当前文档：
+${docsList}
 
-## 任务
-1. 分析这些提交是否涉及用户可见的功能变化（新增功能、UI 变更、配置变更等）
-2. 如果只是重构、bug 修复、技术债务清理，不需要更新文档
-3. 如果涉及功能变化，请：
-   a. 判断需要更新哪个文档（客户端手册 client/、服务端手册 admin/、changelog）
-   b. 给出更新的具体内容
-   c. 如果是 changelog，格式为 "- 功能说明 [#commit-hash]"
+规则：
+- 重构/bug修复 → 不更新
+- 功能变化 → 生成以下内容：
+  1. changelog：一行更新日志
+  2. 手册：${manualHint}
+  3. 白皮书：${whitepaperHint}
 
-请用以下 JSON 格式输出（只输出 JSON，不要其他内容）：
-{"needsUpdate": true/false, "reason": "简短判断原因", "updates": [{"file": "cove/changelog/index.md", "action": "insert", "content": "要插入的内容"}]}
+输出严格 JSON（不要其他内容，字段值为 null 表示不更新该项）：
+{
+  "needsUpdate": true,
+  "reason": "简短原因",
+  "changelog": "- ✨ 新增：功能说明 [#hash]",
+  "manualFilename": "${isClient ? "03-09-新功能名" : "10-新功能名"}",
+  "manualTitle": "页面标题",
+  "manualContent": "## 标题\\n\\n操作步骤：\\n1. 第一步\\n2. 第二步",
+  "manualIndexLink": "- [**标题**](./03-09-新功能名) — 说明",
+  "whitepaper": "新功能 —— 价值点（只写内容，脚本会自动加缩进）",
+  "whitepaperSection": "Word 插件/企业管理后台",
+  "screenshots": ["sidebar"]
+}
 
-如果不需要更新文档，设 needsUpdate: false。`;
+不是功能变化时只输出：{"needsUpdate": false, "reason": "原因"}`;
 
   try {
     const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${DEEPSEEK_API_KEY}` },
       body: JSON.stringify({
         model: "deepseek-chat",
         messages: [
-          { role: "system", content: "你是产品文档工程师，负责分析代码变更并更新产品手册。你只输出 JSON。" },
+          { role: "system", content: "你是产品文档工程师。你只输出 JSON。" },
           { role: "user", content: prompt },
         ],
         temperature: 0.2,
-        max_tokens: 2000,
+        max_tokens: 3000,
       }),
     });
-
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
-
     const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.log("AI 返回格式异常，跳过：", content.slice(0, 200));
-      return [];
-    }
+    if (!jsonMatch) { console.log("AI 返回异常：", content.slice(0, 200)); return { needsUpdate: false }; }
 
     const result = JSON.parse(jsonMatch[0]);
-    if (!result.needsUpdate) {
-      console.log(`AI 判定无需更新：${result.reason}`);
-      return [];
-    }
+    if (!result.needsUpdate) { console.log(`无需更新：${result.reason || "AI 判定无需更新"}`); return { needsUpdate: false }; }
 
-    console.log(`AI 判定需要更新：${result.reason}`);
-    return result.updates || [];
+    console.log(`需要更新：${result.reason}`);
+    return result;
   } catch (err) {
-    console.error("调用 DeepSeek API 出错：", err.message);
-    return [];
+    console.error("DeepSeek API 错误：", err.message);
+    return { needsUpdate: false };
   }
 }
 
-/** 应用文档更新 */
-function applyUpdate(update) {
-  const filePath = join(__dirname, "..", update.file);
+// ── 文档更新 ──────────────────────────────────────────────────────────────
 
-  if (!existsSync(filePath)) {
-    console.log(`文件不存在，跳过：${update.file}`);
-    return;
-  }
+function prependToChangelog(relPath, entry) {
+  const fullPath = join(ROOT, relPath);
+  if (!existsSync(fullPath)) return;
+  let content = readFileSync(fullPath, "utf-8");
+  entry = entry.trim() + "\n";
 
-  if (update.action === "insert") {
-    const content = readFileSync(filePath, "utf-8");
-    writeFileSync(filePath, content + "\n" + update.content + "\n");
-    console.log(`已追加内容到：${update.file}`);
-  } else if (update.action === "modify") {
-    writeFileSync(filePath, update.content + "\n");
-    console.log(`已更新文件：${update.file}`);
+  if (entry.startsWith("## ")) {
+    // 新版本块：插入在第一个版本号前
+    const m = content.match(/^(## \d+\.\d+\.\d+.*)$/m);
+    if (m) { content = content.slice(0, m.index) + entry + "\n" + content.slice(m.index); }
+  } else {
+    // 单条：插入在第一个发布日期后
+    const m = content.match(/^(> 发布日期：.*)$/m);
+    if (m) {
+      const pos = m.index + m[0].length;
+      content = content.slice(0, pos) + "\n\n" + entry + content.slice(pos);
+    }
   }
+  writeFileSync(fullPath, content);
+  console.log("✓ changelog 已更新");
+}
+
+function updateManual(config, result) {
+  const filePath = join(ROOT, config.manualDir, `${result.manualFilename}.md`);
+  let content = result.manualContent.trim();
+  if (!content.startsWith("---")) {
+    content = `---\ntitle: ${result.manualTitle || result.manualFilename}\n---\n\n${content}`;
+  }
+  if (!content.endsWith("\n")) content += "\n";
+
+  const isNew = !existsSync(filePath);
+  writeFileSync(filePath, content);
+  console.log(`✓ ${isNew ? "新建" : "更新"}手册页：${result.manualFilename}.md`);
+
+  if (isNew && result.manualIndexLink) {
+    addIndexLink(config.manualIndex, result.manualIndexLink);
+  }
+}
+
+function addIndexLink(relPath, link) {
+  const fullPath = join(ROOT, relPath);
+  if (!existsSync(fullPath)) return;
+  let content = readFileSync(fullPath, "utf-8");
+  const m = content.match(/- \[.*常见问题.*\]\(.*\)/);
+  if (m) {
+    content = content.slice(0, m.index) + link + "\n" + content.slice(m.index);
+    writeFileSync(fullPath, content);
+    console.log("✓ 手册索引页已更新");
+  }
+}
+
+function updateWhitepaper(config, line, section) {
+  const fullPath = join(ROOT, config.whitepaper);
+  if (!existsSync(fullPath)) return;
+  let content = readFileSync(fullPath, "utf-8");
+  line = line.trim();
+
+  // 根据区域选择插入标记
+  const isWordPlugin = (section || "").includes("Word") || config.type === "client";
+  const markers = isWordPlugin
+    ? ["│   └── Skill", "│   └── 技能", "│   └── 小工具"]
+    : ["    └── 仪表盘", "    └── 活跃用户"];
+
+  const prefix = isWordPlugin ? "│   ├── " : "    ├── ";
+
+  for (const marker of markers) {
+    const idx = content.indexOf(`\n${marker}`);
+    if (idx >= 0) {
+      content = content.slice(0, idx + 1) + prefix + line + "\n" + content.slice(idx + 1);
+      writeFileSync(fullPath, content);
+      console.log(`✓ 白皮书产品矩阵已更新（${isWordPlugin ? "Word插件" : "管理后台"}）`);
+      return;
+    }
+  }
+  console.log("⚠ 未找到白皮书插入位置");
+}
+
+// ── 截图提示 ──────────────────────────────────────────────────────────────
+
+function saveScreenshotHints(config, result) {
+  const hintsDir = join(ROOT, ".screenshot-hints");
+  mkdirSync(hintsDir, { recursive: true });
+  const hints = {
+    repo: SOURCE_REPO,
+    type: config.type,
+    label: (result.manualTitle || result.reason || "").replace(/\s+/g, "-").slice(0, 30),
+    pages: result.screenshots || [],
+    imageDir: config.type === "client" ? "cove/client/images" : "cove/admin/images",
+    manualFilename: result.manualFilename || "",
+  };
+  writeFileSync(join(hintsDir, "pending.json"), JSON.stringify(hints, null, 2));
+  console.log(`📷 截图提示已保存：${hints.pages.length} 个页面（${hints.pages.join(", ")}）`);
 }
 
 main().catch((err) => {

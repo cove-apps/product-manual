@@ -56,7 +56,14 @@ jobs:
           SOURCE_VERSION: ${{ github.event.client_payload.version }}
         run: node scripts/auto-update-docs.mjs
 
-      - name: 提交文档更新
+      - name: 安装 Chrome（截图 + PDF 导出）
+        run: npx puppeteer browsers install chrome || true
+
+      - name: 截图插件界面
+        if: github.event_name == 'repository_dispatch' && github.event.client_payload.repo == 'cove-wps'
+        run: node scripts/screenshot-docs.cjs
+
+      - name: 提交文档更新（含截图）
         if: github.event_name == 'repository_dispatch'
         run: |
           if [ -n "$(git status --porcelain)" ]; then
@@ -72,9 +79,6 @@ jobs:
 
       - name: 构建网站
         run: npm run build
-
-      - name: 安装 Chrome（用于 PDF 导出）
-        run: npx puppeteer browsers install chrome || true
 
       - name: 导出 PDF
         run: node scripts/export-pdf.cjs || echo "PDF 导出跳过"
