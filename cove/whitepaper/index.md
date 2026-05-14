@@ -8,7 +8,7 @@ title: 产品白皮书
 > 清晰说明 OfficeAI 当前真正能交付什么、产品边界在哪里、如何集成与部署。
 
 <div style="margin:20px 0;">
-  <a target="_blank" href="/product-manual/downloads/cove-产品白皮书.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
+  <a target="_blank" href="/product-manual/downloads/OfficeAI-产品白皮书.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
     ⬇ 下载 PDF 版本
   </a>
 </div>

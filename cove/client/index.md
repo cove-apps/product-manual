@@ -8,7 +8,7 @@ title: 客户端手册
 > 不需要懂技术，按任务找章节即可。
 
 <div style="margin:20px 0;">
-  <a target="_blank" href="/product-manual/downloads/cove-客户端手册.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
+  <a target="_blank" href="/product-manual/downloads/OfficeAI-客户端手册.pdf" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:500;">
     ⬇ 下载 PDF 版本
   </a>
 </div>
