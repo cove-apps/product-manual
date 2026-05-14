@@ -6,3 +6,4 @@ node_modules/
 videos/
 .playwright-mcp/
 .screenshot-hints/
+.vscode/
