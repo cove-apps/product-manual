@@ -36,3 +36,5 @@ features:
     details: 产品定位、能力地图、技术架构、部署形态
     link: /cove/whitepaper/
 ---
+
+<HomeSearch />
