@@ -168,7 +168,7 @@ async function main() {
 <head>
 <meta charset="utf-8">
 <style>
-  body { font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; font-size:14px; line-height:1.7; color:#222; max-width:210mm; margin:0 auto; padding:2cm; }
+  body { font-family:"Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif; font-size:14px; line-height:1.7; color:#222; max-width:210mm; margin:0 auto; padding:2cm; }
   h1 { font-size:22pt; color:#1a1a1a; border-bottom:2px solid #2563eb; padding-bottom:8pt; margin-top:28pt; }
   h2 { font-size:16pt; color:#333; margin-top:22pt; }
   h3 { font-size:13pt; color:#444; margin-top:16pt; }
@@ -220,6 +220,15 @@ ${contents.join('\n<div class="page-break"></div>\n')}
     });
     await pdfPage.close();
     try { fs.unlinkSync(tmpFile); } catch(e) {}
+    // 设置 PDF 打开时自动显示目录面板（书签/大纲）
+    try {
+      let pdfBuf = fs.readFileSync(pdfPath);
+      pdfBuf = Buffer.from(pdfBuf.toString('utf-8').replace(
+        '/Type /Catalog',
+        '/Type /Catalog /PageMode /UseOutlines'
+      ), 'utf-8');
+      fs.writeFileSync(pdfPath, pdfBuf);
+    } catch(e) { /* PageMode 修改失败不影响导出 */ }
 
     // 同步到 public/downloads/，供开发服务器使用
     const srcPath = path.join(SRC_DL, `${section.name}.pdf`);
