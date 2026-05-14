@@ -5,7 +5,7 @@ title: OfficeAI 产品手册
 hero:
   name: OfficeAI
   text: 产品手册
-  tagline: OfficeAI 智能办公助手
+  tagline: OfficeAI 是 OfficeAI 智能办公助手，以 WPS 插件形式运行，提供文档校对、翻译、排版、校审、总结、改写、润色等 AI 辅助功能。
   image:
     src: /officeai-logo.png
     alt: OfficeAI

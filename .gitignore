@@ -4,3 +4,4 @@ node_modules/
 *.html
 .DS_Store
 videos/
+.playwright-mcp/
