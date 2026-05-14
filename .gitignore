@@ -4,6 +4,7 @@ node_modules/
 *.html
 .DS_Store
 videos/
+public/downloads/
 .playwright-mcp/
 .screenshot-hints/
 .vscode/
