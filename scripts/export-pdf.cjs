@@ -33,10 +33,10 @@ function scanPages(dir, label) {
 
 // 动态构建导出列表
 const SECTIONS = [
-  scanPages('cove/client', 'cove-客户端手册'),
-  scanPages('cove/admin', 'cove-服务端手册'),
-  { name: 'cove-产品白皮书', pages: ['/cove/whitepaper/'] },
-  { name: 'cove-更新日志', pages: ['/cove/changelog/'] },
+  scanPages('cove/client', 'OfficeAI-客户端手册'),
+  scanPages('cove/admin', 'OfficeAI-服务端手册'),
+  { name: 'OfficeAI-产品白皮书', pages: ['/cove/whitepaper/'] },
+  { name: 'OfficeAI-更新日志', pages: ['/cove/changelog/'] },
 ];
 
 // 静态文件服务器
@@ -64,17 +64,10 @@ function startServer(distDir, port) {
   });
 }
 
-/** 抓取单个页面的 HTML 正文内容 */
+/** 抓取单个页面的 HTML 正文内容（DOM 就绪即可，不等图片加载） */
 async function fetchPageContent(browser, url) {
   const page = await browser.newPage();
-  await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
-  // 等待所有图片完成
-  await page.evaluate(() => Promise.all(
-    Array.from(document.querySelectorAll('img'))
-      .filter(img => !img.complete)
-      .map(img => new Promise(r => { img.onload = r; img.onerror = r; }))
-  ));
-  await new Promise(r => setTimeout(r, 2000));
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
   // 获取正文 HTML（去除导航、侧边栏、页脚、视频、下载按钮）
   const html = await page.evaluate(() => {
     document.querySelectorAll('video,.VPNav,.VPSidebar,.VPLocalNav,.VPFooter,.VPDocFooter,a[href*="/downloads/"]')
@@ -92,6 +85,25 @@ async function fetchPageContent(browser, url) {
   });
   await page.close();
   return html;
+}
+
+/** 并行抓取多页，限制并发数 */
+async function fetchAllPages(browser, pages, baseUrl) {
+  const results = [];
+  const concurrency = 5;
+  for (let i = 0; i < pages.length; i += concurrency) {
+    const batch = pages.slice(i, i + concurrency);
+    const batchHtml = await Promise.all(
+      batch.map(url =>
+        fetchPageContent(browser, `${baseUrl}${url}`).catch(err => {
+          process.stdout.write(`    ⚠ ${url} 失败: ${err.message}\n`);
+          return '';
+        })
+      )
+    );
+    results.push(...batchHtml);
+  }
+  return results;
 }
 
 async function main() {
@@ -120,11 +132,11 @@ async function main() {
     console.log(`\n📖 ${section.name}（${section.pages.length} 页）`);
 
     const contents = [];
-    for (const pageUrl of section.pages) {
-      process.stdout.write(`  抓取: ${pageUrl} `);
-      const html = await fetchPageContent(browser, `${BASE}${pageUrl}`);
-      contents.push(html);
-      process.stdout.write(`(${(html.length / 1024).toFixed(0)}KB)\n`);
+    console.log(`  正在抓取 ${section.pages.length} 页（并发 5 组）...`);
+    const htmls = await fetchAllPages(browser, section.pages, BASE);
+    for (let i = 0; i < section.pages.length; i++) {
+      process.stdout.write(`  ${section.pages[i]} (${(htmls[i].length / 1024).toFixed(0)}KB)\n`);
+      contents.push(htmls[i]);
     }
 
     const combinedHtml = `<!DOCTYPE html>
@@ -160,7 +172,12 @@ ${contents.join('\n<div class="page-break"></div>\n')}
     await pdfPage.goto(`http://localhost:${PORT}/_combined_${section.name}.html`, {
       waitUntil: 'networkidle0', timeout: 30000
     });
-    await new Promise(r => setTimeout(r, 3000));
+    // PDF 页内图片需要加载完成，等网络静默
+    await pdfPage.evaluate(() => Promise.all(
+      Array.from(document.querySelectorAll('img'))
+        .filter(img => !img.complete)
+        .map(img => new Promise(r => { img.onload = r; img.onerror = r; }))
+    ));
 
     const pdfPath = path.join(OUTPUT, `${section.name}.pdf`);
     await pdfPage.pdf({
@@ -171,6 +188,7 @@ ${contents.join('\n<div class="page-break"></div>\n')}
       tagged: true,
       margin: { top: '1.5cm', bottom: '1.5cm', left: '2cm', right: '2cm' },
       displayHeaderFooter: true,
+      headerTemplate: '<div></div>',  // 覆盖默认页眉，隐藏自动日期
       footerTemplate: `
         <div style="width:100%;font-size:9px;text-align:center;color:#999;padding:5px 20px;">
           <span class="pageNumber"></span> / <span class="totalPages"></span>
