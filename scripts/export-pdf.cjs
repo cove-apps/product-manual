@@ -121,9 +121,11 @@ async function main() {
   const server = await startServer(DIST, PORT);
   console.log(`🚀 服务已启动: ${BASE}`);
 
+  // macOS 用系统 Chrome，CI 等无 Chrome 环境用 Puppeteer 自带的浏览器
+  const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   const browser = await puppeteer.launch({
     headless: true,
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    ...(fs.existsSync(CHROME_PATH) ? { executablePath: CHROME_PATH } : {}),
     args: ['--no-sandbox'],
   });
 

@@ -14,5 +14,8 @@
     "pdf-lib": "^1.17.1",
     "vitepress": "^1.6.4",
     "vue": "^3.5.34"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.43.1"
   }
 }
