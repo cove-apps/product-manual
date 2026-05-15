@@ -85,11 +85,15 @@ jobs:
             -o /tmp/rm.json 2>/dev/null || echo "无法获取远程更新日志"
           node scripts/generate-changelog.js 2>&1 || echo "跳过更新日志生成"
 
-      - name: 检出源仓库（用于 AI 文档更新）
+      - name: 验证 Token 有效性
         env:
           GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
         run: |
-          gh repo clone "cove-apps/${SRC_REPO}" "_source/${SRC_REPO}"
+          echo "Token length: ${#GH_TOKEN}"
+          echo "Testing API access..."
+          gh api repos/cove-apps/${SRC_REPO} --jq '.full_name' 2>&1 || echo "API FAILED"
+          echo "Testing gh repo clone..."
+          gh repo clone "cove-apps/${SRC_REPO}" "_source/${SRC_REPO}" 2>&1 || echo "CLONE FAILED"
 
       - name: AI 自动更新文档
         env:
