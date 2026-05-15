@@ -1,53 +1,62 @@
 [
   {
+    "id": "faq-安装失败",
     "title": "安装失败",
     "html": "<p>如果浏览器在线安装失败，会弹出安装失败的提示窗口。</p>\n<p><img src=\"../client/images/%E5%B8%B8%E9%97%AE-%E5%AE%89%E8%A3%85%E5%A4%B1%E8%B4%A5%E6%8F%90%E7%A4%BA.png\" alt=\"安装失败提示\"></p>\n<p><strong>解决方法：</strong> 在弹出窗口下方选择对应的操作系统，使用备用安装方式进行安装。</p>\n",
     "source": "客户端",
     "sourceDir": "client"
   },
   {
+    "id": "faq-登录异常",
     "title": "登录异常",
     "html": "<p><strong>Q：登录后提示&quot;账号暂无访问权限&quot;</strong></p>\n<p>可能是管理员还未审批你的注册申请，联系管理员处理。</p>\n<p><strong>Q：登录状态丢失</strong></p>\n<p>检查网络连接是否正常，重新登录即可。如果持续异常，联系管理员检查服务器状态。</p>\n",
     "source": "客户端",
     "sourceDir": "client"
   },
   {
+    "id": "faq-功能使用",
     "title": "功能使用",
     "html": "<p><strong>Q：AI 处理结果不理想</strong></p>\n<ul>\n<li>可以多次对话，反复调整直到满意</li>\n<li>检查是否选择了合适的模型（不同模型能力有差异）</li>\n<li>确认文档内容清晰，无乱码</li>\n</ul>\n<p><strong>Q：如何撤销 AI 的操作</strong></p>\n<p>在确认弹窗中可以选择「撤销」，文档会自动回到任务前的状态。</p>\n<p><strong>Q：翻译结果不符合预期</strong></p>\n<p>可以尝试更换模型，或调整提示词让 AI 按你的风格翻译。</p>\n<p><strong>Q：审查结果没有反应在文档上</strong></p>\n<p>审查的结果以<strong>批注</strong>形式插入文档。如果文档没有显示批注，检查 WPS 的批注视图是否已开启。</p>\n<p><strong>Q：「写作」生成的内容没有直接写入文档</strong></p>\n<p>写作模式生成的内容会先展示在对话区，确认满意后再手动导入文档。这样可以避免生成内容不符合预期时反复撤销。</p>\n",
     "source": "客户端",
     "sourceDir": "client"
   },
   {
+    "id": "faq-性能相关",
     "title": "性能相关",
     "html": "<p><strong>Q：长文档处理慢</strong></p>\n<ul>\n<li>建议先选择文档中的关键部分进行选区操作</li>\n<li>关闭「思考过程」可加快简单任务的处理速度</li>\n</ul>\n<p><strong>Q：插件卡住了怎么办</strong></p>\n<ul>\n<li>等待当前任务完成（长文档可能需要几分钟）</li>\n<li>如果长时间无响应，重启 WPS 后重试</li>\n</ul>\n",
     "source": "客户端",
     "sourceDir": "client"
   },
   {
+    "id": "faq-诊断与日志",
     "title": "诊断与日志",
     "html": "<p><strong>Q：如何查看本地运行日志</strong></p>\n<p>从 1.4.5 版本开始，插件支持记录本地运行日志。如有异常需要排查，打开 WPS 的「开发工具」面板（或按 Alt+F11），在立即窗口中输入 <code>Application.InnovatelogPath</code> 即可查看日志文件所在目录。</p>\n<blockquote>\n<p>日志记录了插件的运行过程，如果联系技术支持排查问题，建议一并提供日志文件。</p>\n</blockquote>\n",
     "source": "客户端",
     "sourceDir": "client"
   },
   {
+    "id": "faq-部署问题",
     "title": "部署问题",
     "html": "<p><strong>Q：需要什么样的服务器？</strong></p>\n<p>建议 8 核 CPU、16GB 内存、256GB 硬盘的 Linux 服务器。尽量避免和其他业务共用。</p>\n<p><strong>Q：支持哪些操作系统？</strong></p>\n<p>服务端支持 Ubuntu 20.04+、CentOS 7+、Redhat 7+，以及麒麟 V10、统信 V20 等国产系统。</p>\n<p><strong>Q：安装脚本执行失败怎么办？</strong></p>\n<ul>\n<li>确认系统版本在适配列表中</li>\n<li>不要修改安装脚本的原始内容</li>\n<li>如果提示权限问题，使用 <code>sudo ./setup.sh</code></li>\n</ul>\n",
     "source": "服务端",
     "sourceDir": "admin"
   },
   {
+    "id": "faq-模型配置",
     "title": "模型配置",
     "html": "<p><strong>Q：如何选择使用哪个模型？</strong></p>\n<ul>\n<li>文档处理推荐 Qwen3.5-27B，不建议用推理模型（等待时间长）</li>\n<li>识图推荐 DeepSeek OCR 或 Qwen2.5-VL</li>\n</ul>\n<p><strong>Q：模型测试连接失败</strong></p>\n<ul>\n<li>确认 API Key 是否正确</li>\n<li>确认网络连通性（内网模型检查地址和端口）</li>\n<li>检查模型是否已加载完成</li>\n</ul>\n",
     "source": "服务端",
     "sourceDir": "admin"
   },
   {
+    "id": "faq-用户管理",
     "title": "用户管理",
     "html": "<p><strong>Q：用户无法登录</strong></p>\n<ul>\n<li>检查用户是否已通过审批</li>\n<li>检查用户账号是否被禁用</li>\n<li>确认服务器地址配置正确</li>\n</ul>\n<p><strong>Q：如何让用户注册后直接可用？</strong></p>\n<p>在管理后台 → 用户管理 → 自动审批规则中开启自动审批。</p>\n",
     "source": "服务端",
     "sourceDir": "admin"
   },
   {
+    "id": "faq-运维问题",
     "title": "运维问题",
     "html": "<p><strong>Q：如何升级服务端？</strong></p>\n<p>管理后台 → 版本升级 → 上传新版本 → 系统自动部署。</p>\n<p><strong>Q：日志文件太大怎么办？</strong></p>\n<p>在操作日志页面选择备份或清理，按时间段清理历史日志。</p>\n<blockquote>\n<p>⚠️ 清理的日志无法恢复。</p>\n</blockquote>\n<p><strong>Q：License 过期了怎么办？</strong></p>\n<p>在管理后台 → 企业设置 → 授权管理中查看设备指纹，联系获取新 License。</p>\n",
     "source": "服务端",

@@ -56,6 +56,18 @@ function sourceDir(fp) {
   return path.relative(COVE_DIR, fp).split(path.sep)[0]
 }
 
+/**
+ * 从标题生成稳定的锚点 ID
+ */
+function slugify(text) {
+  return 'faq-' + text
+    .replace(/[^a-zA-Z0-9一-鿿]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase()
+    .slice(0, 60)
+}
+
 function parsePageTitle(content) {
   const m = content.match(/^title:\s*(.+)/m)
   return m ? m[1].trim() : ''
@@ -185,6 +197,7 @@ for (const src of sources) {
 
     const html = mdToHtml(mdContent, src.sdir)
     faqItems.push({
+      id: slugify(section.title),
       title: section.title,
       html,
       source: src.label,

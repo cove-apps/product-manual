@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps<{
   items: {
+    id: string
     title: string
     html: string
     source: string
@@ -11,6 +12,22 @@ const props = defineProps<{
 }>()
 
 const activeTab = ref<'all' | 'client' | 'admin'>('all')
+
+function handleHash() {
+  const hash = location.hash.slice(1)
+  if (hash.startsWith('faq-')) {
+    activeTab.value = 'all'
+    setTimeout(() => {
+      document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' })
+    }, 0)
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('hashchange', handleHash)
+  handleHash()
+})
+onUnmounted(() => window.removeEventListener('hashchange', handleHash))
 
 const tabs = [
   { key: 'all', label: '全部' },
@@ -71,7 +88,7 @@ function setTab(key: typeof activeTab.value) {
         :key="idx"
         class="faq-item"
       >
-        <h3 class="faq-item-title">
+        <h3 :id="item.id" class="faq-item-title">
           {{ item.title }}
           <span
             :class="[
