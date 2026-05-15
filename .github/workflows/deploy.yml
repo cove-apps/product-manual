@@ -89,8 +89,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
         run: |
-          git clone "https://x-access-token:${GH_TOKEN}@github.com/cove-apps/${SRC_REPO}.git" \
-            "_source/${SRC_REPO}" --depth=1
+          gh repo clone "cove-apps/${SRC_REPO}" "_source/${SRC_REPO}"
 
       - name: AI 自动更新文档
         env:
