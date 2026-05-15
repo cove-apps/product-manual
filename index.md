@@ -5,7 +5,7 @@ title: OfficeAI 产品手册
 hero:
   name: OfficeAI
   text: 产品手册
-  tagline: OfficeAI 是 OfficeAI 智能办公助手，提供文档校对、翻译、排版、校审、总结、改写、润色等 AI 辅助功能。
+  tagline: OfficeAI提供文档校对、排版、审查、翻译、改写、润色等功能，让办公效率倍增，用AI解锁办公新质生产力！
   image:
     src: /officeai-nav-logo-light.png
     alt: OfficeAI
@@ -42,5 +42,4 @@ features:
     details: 安装部署、功能使用、故障排查 — 一站式快速解答
     link: /cove/faq/
 ---
-
 <HomeSearch />
