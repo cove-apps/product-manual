@@ -111,7 +111,7 @@ export default defineConfig({
     },
 
     nav: [
-      { text: 'OfficeAI 产品手册', link: 'https://cove-apps.github.io/product-manual/' },
+      { text: 'OfficeAI 产品手册', link: '/' },
       { text: '客户端手册', link: '/cove/client/' },
       { text: '服务端手册', link: '/cove/admin/' },
       { text: '产品白皮书', link: '/cove/whitepaper/' },
