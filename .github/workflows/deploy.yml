@@ -86,12 +86,11 @@ jobs:
           node scripts/generate-changelog.js 2>&1 || echo "跳过更新日志生成"
 
       - name: 检出源仓库（用于 AI 文档更新）
-        uses: actions/checkout@v4
-        with:
-          repository: cove-apps/${{ env.SRC_REPO }}
-          ref: main
-          path: _source/${{ env.SRC_REPO }}
-          token: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/cove-apps/${SRC_REPO}.git" \
+            "_source/${SRC_REPO}" --depth=1
 
       - name: AI 自动更新文档
         env:
