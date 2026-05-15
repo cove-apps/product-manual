@@ -241,6 +241,20 @@ ${contents.join('\n<div class="page-break"></div>\n')}
     console.log(`  ✅ ${section.name}.pdf (${size}MB)`);
   }
 
+  // 打包全部 PDF 为 ZIP
+  console.log('\n📦 打包全部 PDF...');
+  const zipName = 'OfficeAI-产品手册合集.zip';
+  const zipPath = path.join(DIST_DL, zipName);
+  try {
+    execSync(`cd "${DIST_DL}" && zip -j "${zipName}" *.pdf`, { stdio: 'pipe' });
+    // 同步到 public/downloads/，供开发服务器使用
+    fs.copyFileSync(zipPath, path.join(SRC_DL, zipName));
+    const zipSize = (fs.statSync(zipPath).size / 1024 / 1024).toFixed(1);
+    console.log(`  ✅ ${zipName} (${zipSize}MB)`);
+  } catch(e) {
+    console.log(`  ⚠ ZIP 打包失败: ${e.message}`);
+  }
+
   await browser.close();
   server.close();
   console.log('\n✅ 全部 PDF 生成完成');
