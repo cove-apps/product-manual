@@ -74,29 +74,31 @@ async function main() {
 // ── Git 操作 ──────────────────────────────────────────────────────────────
 
 async function getCommits(repo) {
-  const repoPath = `../${repo}`;
-  try {
-    const log = execSync(`git -C "${repoPath}" log --oneline -10 2>/dev/null`, {
-      encoding: "utf-8", timeout: 30000,
-    }).trim();
-    if (!log) return await getCommitsFromAPI(repo);
-    const lines = log.split("\n").filter(Boolean);
-    const commits = [];
-    for (const line of lines.slice(0, 5)) {
-      const [hash, ...msgParts] = line.split(" ");
-      const message = msgParts.join(" ");
-      let diff = "";
-      try {
-        diff = execSync(`git -C "${repoPath}" show --stat ${hash} 2>/dev/null | head -30`, {
-          encoding: "utf-8", timeout: 15000,
-        }).trim();
-      } catch {}
-      commits.push({ hash, message, diff });
-    }
-    return commits;
-  } catch {
-    return await getCommitsFromAPI(repo);
+  // CI 环境下源仓库在 _source/ 下，本地开发在上级目录
+  const paths = [`_source/${repo}`, `../${repo}`];
+  for (const repoPath of paths) {
+    try {
+      const log = execSync(`git -C "${repoPath}" log --oneline -10 2>/dev/null`, {
+        encoding: "utf-8", timeout: 30000,
+      }).trim();
+      if (!log) continue;
+      const lines = log.split("\n").filter(Boolean);
+      const commits = [];
+      for (const line of lines.slice(0, 5)) {
+        const [hash, ...msgParts] = line.split(" ");
+        const message = msgParts.join(" ");
+        let diff = "";
+        try {
+          diff = execSync(`git -C "${repoPath}" show --stat ${hash} 2>/dev/null | head -30`, {
+            encoding: "utf-8", timeout: 15000,
+          }).trim();
+        } catch {}
+        commits.push({ hash, message, diff });
+      }
+      return commits;
+    } catch {}
   }
+  return await getCommitsFromAPI(repo);
 }
 
 async function getCommitsFromAPI(repo) {

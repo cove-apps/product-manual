@@ -89,7 +89,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: cove-apps/${{ env.SRC_REPO }}
-          path: ../${{ env.SRC_REPO }}
+          path: _source/${{ env.SRC_REPO }}
           token: ${{ secrets.DOCS_DISPATCH_TOKEN }}
 
       - name: AI 自动更新文档
