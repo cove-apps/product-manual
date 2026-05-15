@@ -71,8 +71,21 @@ export default defineConfig({
     ['link', { rel: 'icon', href: '/favicon.svg' }],
   ],
 
+  lang: 'zh-CN',
+
   themeConfig: {
     logo: '/officeai-logo.png',
+    outlineTitle: '本页内容',
+    lastUpdatedText: '最后更新',
+    docFooter: {
+      prev: '上一页',
+      next: '下一页',
+    },
+    darkModeSwitchLabel: '深色模式',
+    sidebarMenuLabel: '菜单',
+    returnToTopLabel: '返回顶部',
+    langMenuLabel: '切换语言',
+
     search: {
       provider: 'local',
       options: {
@@ -99,6 +112,7 @@ export default defineConfig({
       { text: '客户端手册', link: '/cove/client/' },
       { text: '服务端手册', link: '/cove/admin/' },
       { text: '更新日志', link: '/cove/changelog/' },
+      { text: '常见问题', link: '/cove/faq/' },
     ],
 
     sidebar: {
@@ -110,6 +124,13 @@ export default defineConfig({
       '/cove/whitepaper/': [
         { text: '产品白皮书', link: '/cove/whitepaper/' },
       ],
+      '/cove/faq/': [
+        { text: '常见问题汇总', link: '/cove/faq/' },
+      ],
+    },
+
+    editLink: {
+      text: '编辑此页',
     },
 
     footer: {

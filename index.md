@@ -35,6 +35,12 @@ features:
     title: 产品白皮书
     details: 产品定位、能力地图、技术架构、部署形态
     link: /cove/whitepaper/
+  - icon:
+      src: /icons/_icon-faq.svg
+      width: 48
+    title: 常见问题
+    details: 安装部署、功能使用、故障排查 — 一站式快速解答
+    link: /cove/faq/
 ---
 
 <HomeSearch />

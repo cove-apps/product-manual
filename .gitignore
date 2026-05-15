@@ -8,3 +8,5 @@ public/downloads/
 .playwright-mcp/
 .screenshot-hints/
 .vscode/
+public/admin/
+public/client/
