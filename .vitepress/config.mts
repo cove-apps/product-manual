@@ -74,7 +74,10 @@ export default defineConfig({
   lang: 'zh-CN',
 
   themeConfig: {
-    logo: '/officeai-logo.png',
+    logo: {
+      light: '/officeai-nav-logo-light.png',
+      dark: '/officeai-nav-logo-dark.png',
+    },
     outlineTitle: '本页内容',
     lastUpdatedText: '最后更新',
     docFooter: {
@@ -127,10 +130,6 @@ export default defineConfig({
       '/cove/faq/': [
         { text: '常见问题汇总', link: '/cove/faq/' },
       ],
-    },
-
-    editLink: {
-      text: '编辑此页',
     },
 
     footer: {

@@ -1,0 +1,65 @@
+name: 定期检查版本更新
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # 每6小时检查一次
+  workflow_dispatch:  # 也可手动触发
+
+jobs:
+  check-releases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出产品手册
+        uses: actions/checkout@v4
+
+      - name: 获取 cove-wps 最新发布版本
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 获取最近10个正式发布版本（排除预发布和草稿）
+          gh api repos/cove-apps/cove-wps/releases \
+            --jq '[.[] | select(.prerelease == false and .draft == false)] | .[0:10] | .[] | "\(.tag_name)"' \
+            > /tmp/releases.txt
+
+          echo "cove-wps 最新发布版本："
+          cat /tmp/releases.txt
+
+      - name: 比对 changelog 找出缺失版本
+        id: diff
+        run: |
+          MISSING=""
+
+          while IFS= read -r TAG; do
+            [ -z "$TAG" ] && continue
+            VER="${TAG#v}"  # 去掉 v 前缀（v1.5.0 → 1.5.0）
+
+            # 检查 changelog 中是否已有该版本
+            if ! grep -q "^## ${VER}$" cove/changelog/index.md; then
+              MISSING="$MISSING $VER"
+              echo "发现新版本：$VER"
+            fi
+          done < /tmp/releases.txt
+
+          if [ -n "$MISSING" ]; then
+            echo "has_new=true" >> "$GITHUB_OUTPUT"
+            echo "new_versions=$(echo $MISSING | xargs)" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_new=false" >> "$GITHUB_OUTPUT"
+            echo "没有新版本需要更新"
+          fi
+
+      - name: 触发文档自动更新
+        if: steps.diff.outputs.has_new == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+        run: |
+          NEW_VERSIONS="${{ steps.diff.outputs.new_versions }}"
+
+          for VER in $NEW_VERSIONS; do
+            echo "触发 cove-wps v${VER} 文档更新..."
+            gh workflow run deploy.yml \
+              --ref main \
+              -f mode=ai-update \
+              -f repo=cove-wps \
+              -f version="v${VER}"
+          done
