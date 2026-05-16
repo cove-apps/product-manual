@@ -14,7 +14,7 @@ jobs:
 
       - name: 获取 cove-wps 最新发布版本
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
         run: |
           # 获取最近10个正式发布版本（排除预发布和草稿）
           gh api repos/cove-apps/cove-wps/releases \
