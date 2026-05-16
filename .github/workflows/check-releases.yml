@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出产品手册
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: 获取 cove-wps 最新发布版本
         env:
