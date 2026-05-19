@@ -16,6 +16,9 @@ title: 更新日志
 
 > 发布日期：2026-05-14
 
+- 🐛 修复：format/comment/qa 模式下模型调用 batchProcess 报错 [#540]
+
+
 - 🐛 修复：方德系统 ShowDialog 关闭后 body 交互失效
 - ⚡ 优化：body-guard 心跳逻辑
 - ⚡ 优化：fallback banner 出现延迟大幅缩短
