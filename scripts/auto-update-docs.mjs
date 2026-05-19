@@ -63,7 +63,7 @@ async function main() {
   if (!result.needsUpdate) return;
 
   let changed = 0;
-  if (result.changelog) { prependToChangelog(config.changelog, result.changelog); changed++; }
+  if (result.changelog) { prependToChangelog(config.changelog, result.changelog, SOURCE_VERSION); changed++; }
   if (result.manualContent && result.manualFilename) { updateManual(config, result); changed++; }
   if (result.whitepaper) { updateWhitepaper(config, result.whitepaper, result.whitepaperSection); changed++; }
   if (result.screenshots?.length > 0) { saveScreenshotHints(config, result); }
@@ -186,7 +186,7 @@ ${docsList}
 {
   "needsUpdate": true,
   "reason": "简短原因",
-  "changelog": "- ✨ 新增：功能说明 [#hash]",
+  "changelog": "## ${SOURCE_VERSION}\n\n> 发布日期：${new Date().toISOString().slice(0, 10)}\n\n- ✨ 新增：功能说明",
   "manualFilename": "${isClient ? "03-09-新功能名" : "10-新功能名"}",
   "manualTitle": "页面标题",
   "manualContent": "## 标题\\n\\n操作步骤：\\n1. 第一步\\n2. 第二步",
@@ -230,7 +230,7 @@ ${docsList}
 
 // ── 文档更新 ──────────────────────────────────────────────────────────────
 
-function prependToChangelog(relPath, entry) {
+function prependToChangelog(relPath, entry, version) {
   const fullPath = join(ROOT, relPath);
   if (!existsSync(fullPath)) return;
   let content = readFileSync(fullPath, "utf-8");
@@ -240,8 +240,13 @@ function prependToChangelog(relPath, entry) {
     // 新版本块：插入在第一个版本号前
     const m = content.match(/^(## \d+\.\d+\.\d+.*)$/m);
     if (m) { content = content.slice(0, m.index) + entry + "\n" + content.slice(m.index); }
+  } else if (version) {
+    // AI 未生成版本头时自动创建新版本块
+    const header = `## ${version}\n\n> 发布日期：${new Date().toISOString().slice(0, 10)}\n\n`;
+    const m = content.match(/^(## \d+\.\d+\.\d+.*)$/m);
+    if (m) { content = content.slice(0, m.index) + header + entry + "\n" + content.slice(m.index); }
   } else {
-    // 单条：插入在第一个发布日期后
+    // 保底：插入在第一个发布日期后（极少发生）
     const m = content.match(/^(> 发布日期：.*)$/m);
     if (m) {
       const pos = m.index + m[0].length;
