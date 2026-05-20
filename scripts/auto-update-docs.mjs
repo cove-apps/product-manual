@@ -69,6 +69,23 @@ async function main() {
   if (result.screenshots?.length > 0) { saveScreenshotHints(config, result); }
 
   console.log(`\n=== 文档更新完成（${changed} 项变更）===\n`);
+
+  // 保存更新摘要供部署通知使用
+  const summary = {
+    repo: SOURCE_REPO,
+    version: SOURCE_VERSION,
+    type: config.type,
+    label: config.label,
+    reason: result.reason || null,
+    changelogPreview: result.changelog
+      ? result.changelog.split('\n').filter(l => l.startsWith('- ')).map(l => l.replace(/^- /, '')).join('；')
+      : null,
+    manualTitle: result.manualTitle || null,
+    manualFilename: result.manualFilename || null,
+    hasManual: !!(result.manualContent && result.manualFilename),
+    hasWhitepaper: !!result.whitepaper,
+  };
+  writeFileSync('/tmp/update-summary.json', JSON.stringify(summary, null, 2));
 }
 
 // ── Git 操作 ──────────────────────────────────────────────────────────────

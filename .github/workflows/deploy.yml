@@ -124,85 +124,88 @@ jobs:
         run: |
           if [ -n "$(git status --porcelain)" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            echo "发现文档变更，将创建 PR"
+            echo "发现文档变更，将提交并部署"
           else
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            echo "无文档变更，跳过 PR"
+            echo "无文档变更，跳过发布"
           fi
 
-      - name: 创建分支和 PR
-        id: create-pr
+      - name: 提交变更到 main
         if: steps.check-changes.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
         run: |
-          BRANCH="auto-docs/update-${SRC_REPO}-${SRC_VERSION}"
-
           git config user.name "Auto Docs Bot"
           git config user.email "bot@cove-apps.github.io"
 
-          git checkout -b "${BRANCH}"
           git add -A
           git commit -m "AI 自动文档更新：${SRC_REPO} ${SRC_VERSION} [skip ci]"
 
-          git push origin "${BRANCH}" 2>/dev/null || \
-            git push origin "${BRANCH}" --force
+          # 拉取最新 main 再推送，避免并发冲突
+          git fetch origin main
+          git rebase origin/main
+          git push origin main
+          echo "✓ 已提交到 main 分支"
 
-          PR_URL=$(gh pr view "${BRANCH}" --json url --jq '.url' 2>/dev/null || \
-            gh pr create \
-              --base main \
-              --head "${BRANCH}" \
-              --title "AI 自动文档更新：${SRC_REPO} ${SRC_VERSION}" \
-              --body "## 更新内容
+      - name: 构建网站
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: npm run build
 
-          AI 检测到 \`${SRC_REPO}\` 发布了新版本 \`${SRC_VERSION}\`，已自动更新相关文档。
+      - name: 导出 PDF
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: node scripts/export-pdf.cjs || echo "PDF 导出跳过"
 
-          ### 变更类型
-          - 更新日志（changelog）
-          - 操作手册
-          - 产品白皮书
-          - 截图
+      - name: 上传 Pages 产物
+        if: steps.check-changes.outputs.has_changes == 'true'
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: .vitepress/dist
 
-          > 请审核文档内容，确认无误后合并到 main。合并后将自动触发部署。")
+      - name: 部署到 GitHub Pages
+        if: steps.check-changes.outputs.has_changes == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v5.0.0
 
-          echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
-          echo "PR 已创建：${PR_URL}"
-
-      - name: 发送飞书审核通知
+      - name: 发送更新通知
         if: steps.check-changes.outputs.has_changes == 'true'
         env:
           WEBHOOK: ${{ secrets.LARK_WEBHOOK }}
-          PR_URL: ${{ steps.create-pr.outputs.pr_url }}
-          NEED_MANUAL_SCREENSHOTS: ${{ steps.manual-screenshots.outputs.has_manual }}
-          MANUAL_PAGES: ${{ steps.manual-screenshots.outputs.manual_pages }}
+          URL: ${{ steps.deployment.outputs.page_url }}
         run: |
           if [ -z "$WEBHOOK" ]; then
             echo "未配置飞书 Webhook，跳过通知"
             exit 0
           fi
 
-          MAIN_BLOCK='{"tag":"div","text":{"tag":"lark_md","content":"**更新来源**：'"${SRC_REPO}"' 发布 '"${SRC_VERSION}"'\n\nAI 已自动更新产品手册，需人工审核后合并。\n\n**👉 [查看并审核 PR]('"${PR_URL}"')**\n\n审核通过后合并到 main 分支，系统将自动构建和部署。"}}'
+          SUMMARY_JSON=$(cat /tmp/update-summary.json 2>/dev/null || echo '{}')
 
-          if [ "$NEED_MANUAL_SCREENSHOTS" = "true" ]; then
-            SCREENSHOT_BLOCK='{"tag":"div","text":{"tag":"lark_md","content":"**📷 需要你手动截图**\n以下界面需要在 WPS 中截图：'"${MANUAL_PAGES}"'\n\n截图后放入对应 images/ 目录即可。"}}'
-            ELEMENTS="[${MAIN_BLOCK}, ${SCREENSHOT_BLOCK}]"
-          else
-            ELEMENTS="[${MAIN_BLOCK}]"
-          fi
-
-          curl -s -X POST "$WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"msg_type\": \"interactive\",
-              \"card\": {
-                \"header\": {
-                  \"title\": {\"tag\": \"plain_text\", \"content\": \"📖 产品手册待审核\"},
-                  \"template\": \"blue\"
+          PAYLOAD=$(echo "$SUMMARY_JSON" | jq \
+            --arg repo "$SRC_REPO" \
+            --arg ver "$SRC_VERSION" \
+            --arg url "$URL" \
+            '{
+              "msg_type": "interactive",
+              "card": {
+                "header": {
+                  "title": {"tag": "plain_text", "content": "📖 产品手册已自动更新"},
+                  "template": "green"
                 },
-                \"elements\": ${ELEMENTS}
+                "elements": [
+                  {"tag": "div", "text": {"tag": "lark_md", "content": (
+                    "**更新来源**：" + $repo + "（" + $ver + "）" +
+                    (if ((.reason // "") | length > 0) then "\n\n**变更内容**：" + .reason else "" end) +
+                    "\n\n**更新项**：\n• 更新日志" +
+                    (if (.hasManual and ((.manualTitle // "") | length > 0)) then "\n• 操作手册 — 新增「" + .manualTitle + "」页面" else "" end) +
+                    (if .hasWhitepaper then "\n• 产品白皮书同步更新" else "" end) +
+                    (if ((.changelogPreview // "") | length > 0) then "\n\n📝 " + .changelogPreview else "" end) +
+                    "\n\n**👉 [查看产品手册](" + $url + ")**"
+                  )}}
+                ]
               }
-            }"
-          echo "飞书审核通知已发送"
+            }')
+
+          curl -s -X POST "$WEBHOOK" -H "Content-Type: application/json" -d "$PAYLOAD"
+          echo "部署通知已发送"
 
   # ═══════════════════════════════════════════════════════════════════
   # Job 2: 构建 + 部署（main 分支 push 或手动选择 deploy 模式）
