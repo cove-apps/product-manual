@@ -147,6 +147,10 @@ jobs:
           git push origin main
           echo "✓ 已提交到 main 分支"
 
+      - name: 清理临时文件
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: rm -rf _source/
+
       - name: 构建网站
         if: steps.check-changes.outputs.has_changes == 'true'
         run: npm run build
