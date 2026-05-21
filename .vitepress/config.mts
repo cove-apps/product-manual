@@ -64,7 +64,7 @@ export default defineConfig({
   description: "OfficeAI 产品说明文档",
   base: '/product-manual/',
   srcDir: '.',
-
+  srcExclude: ['_source/**'],
   ignoreDeadLinks: true,
 
   head: [
