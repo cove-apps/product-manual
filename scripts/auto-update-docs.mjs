@@ -192,17 +192,31 @@ ${commitSummary}
 当前文档：
 ${docsList}
 
-规则：
-- 重构/bug修复 → 不更新
-- 功能变化 → 生成以下内容：
-  1. changelog：一行更新日志
-  2. 手册：${manualHint}
-  3. 白皮书：${whitepaperHint}
+规则（按优先级）：
+1. 内部/测试/CI/工具链改动 → 不更新（needsUpdate: false）
+2. Bug 修复 / 性能优化 → **只更新 changelog**
+3. 新增功能 / 用户可见变化 → 更新 changelog + 手册 + 白皮书
 
 输出严格 JSON（不要其他内容，字段值为 null 表示不更新该项）：
+
+// 示例：bug 修复/优化（只更新 changelog）
 {
   "needsUpdate": true,
-  "reason": "简短原因",
+  "reason": "修复了 XX bug",
+  "changelog": "## ${SOURCE_VERSION}\n\n> 发布日期：${new Date().toISOString().slice(0, 10)}\n\n- 🐛 修复：XX 问题描述",
+  "manualFilename": null,
+  "manualTitle": null,
+  "manualContent": null,
+  "manualIndexLink": null,
+  "whitepaper": null,
+  "whitepaperSection": null,
+  "screenshots": []
+}
+
+// 示例：新功能（更新全部）
+{
+  "needsUpdate": true,
+  "reason": "新增了 XX 功能",
   "changelog": "## ${SOURCE_VERSION}\n\n> 发布日期：${new Date().toISOString().slice(0, 10)}\n\n- ✨ 新增：功能说明",
   "manualFilename": "${isClient ? "03-09-新功能名" : "10-新功能名"}",
   "manualTitle": "页面标题",
@@ -213,7 +227,7 @@ ${docsList}
   "screenshots": ["sidebar"],  // 可选值: ${screenshotHint}
 }
 
-不是功能变化时只输出：{"needsUpdate": false, "reason": "原因"}`;
+内部改动时只输出：{"needsUpdate": false, "reason": "原因"}
 
   try {
     const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
