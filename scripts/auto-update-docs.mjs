@@ -227,7 +227,7 @@ ${docsList}
   "screenshots": ["sidebar"],  // 可选值: ${screenshotHint}
 }
 
-内部改动时只输出：{"needsUpdate": false, "reason": "原因"}
+内部改动时只输出：{"needsUpdate": false, "reason": "原因"}`;
 
   try {
     const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
