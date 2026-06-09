@@ -78,20 +78,17 @@ jobs:
       - name: 安装依赖
         run: npm ci
 
-      - name: 生成更新日志
-        run: |
-          curl -s "https://api.github.com/repos/cove-apps/cove-wps/contents/release-manifest.json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -o /tmp/rm.json 2>/dev/null || echo "无法获取远程更新日志"
-          node scripts/generate-changelog.js 2>&1 || echo "跳过更新日志生成"
-
-      - name: 检出源仓库（用于 AI 文档更新）
+      - name: 检出源仓库
         env:
           GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
         run: |
           gh repo clone "cove-apps/${SRC_REPO}" "_source/${SRC_REPO}"
 
-      - name: AI 自动更新文档
+      - name: 生成更新日志（从 release-manifest.json）
+        run: |
+          node scripts/generate-changelog.js --repo="_source/${SRC_REPO}" 2>&1 || echo "跳过更新日志生成"
+
+      - name: AI 自动更新操作手册和白皮书
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           SOURCE_REPO: ${{ env.SRC_REPO }}
@@ -122,9 +119,9 @@ jobs:
       - name: 检查是否有文档变更
         id: check-changes
         run: |
-          if [ -n "$(git status --porcelain)" ]; then
+          if [ -n "$(git status --porcelain -- cove/)" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            echo "发现文档变更，将提交并部署"
+            echo "发现文档变更（cove/ 目录），将提交并部署"
           else
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "无文档变更，跳过发布"

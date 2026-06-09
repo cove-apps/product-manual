@@ -63,7 +63,7 @@ async function main() {
   if (!result.needsUpdate) return;
 
   let changed = 0;
-  if (result.changelog) { prependToChangelog(config.changelog, result.changelog, SOURCE_VERSION); changed++; }
+  // changelog 已由 generate-changelog.js 从 release-manifest.json 生成，AI 不再处理
   if (result.manualContent && result.manualFilename) { updateManual(config, result); changed++; }
   if (result.whitepaper) { updateWhitepaper(config, result.whitepaper, result.whitepaperSection); changed++; }
   if (result.screenshots?.length > 0) { saveScreenshotHints(config, result); }
@@ -77,9 +77,6 @@ async function main() {
     type: config.type,
     label: config.label,
     reason: result.reason || null,
-    changelogPreview: result.changelog
-      ? result.changelog.split('\n').filter(l => l.startsWith('- ')).map(l => l.replace(/^- /, '')).join('；')
-      : null,
     manualTitle: result.manualTitle || null,
     manualFilename: result.manualFilename || null,
     hasManual: !!(result.manualContent && result.manualFilename),
